@@ -1,0 +1,26 @@
+# Compilación
+build/
+out/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.lib
+
+# Editores
+.vscode/
+.idea/
+.vs/
+*.swp
+*.user
+
+# Sistema
+.DS_Store
+Thumbs.db
