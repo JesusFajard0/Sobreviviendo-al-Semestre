@@ -368,3 +368,25 @@ const std::vector<DatosRectangulo>& MapaEscenas::rectangulos(
     auto it = rectangulos_.find(id);
     return it == rectangulos_.end() ? vacio : it->second;
 }
+
+ResultadoCambio MapaEscenas::puedeIr(
+    const std::string& idActual,
+    const std::string& idDestino,
+    int faseActual) const
+{
+    for (const Destino& d : destinos(idActual, faseActual))
+    {
+        if (d.id != idDestino)
+            continue;
+
+        if (d.bloqueado)
+            return ResultadoCambio::Bloqueada;
+
+        if (d.esAnimacion)
+            return ResultadoCambio::Animacion;
+
+        return ResultadoCambio::Ok;
+    }
+
+    return ResultadoCambio::NoExiste;
+}

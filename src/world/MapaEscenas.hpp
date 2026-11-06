@@ -97,6 +97,13 @@ public:
         int faseActual
     ) const;
 
+        // Indica si se puede pasar de una escena a otra en la fase actual.
+    ResultadoCambio puedeIr(
+        const std::string& idActual,
+        const std::string& idDestino,
+        int faseActual
+    ) const;
+
     const std::string& raiz() const;
 
     void imprimirArbol() const;

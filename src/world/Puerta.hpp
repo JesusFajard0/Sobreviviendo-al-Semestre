@@ -1,17 +1,24 @@
-#ifndef PUERTA_HPP
-#define PUERTA_HPP
+#pragma once
 
-#include "Interactuable.hpp"
-#include <iostream>
+#include <SFML/Graphics.hpp>
 
-class Puerta : public Interactuable {
-private:
-    std::string m_destinoId; // A qué lugar lleva
+#include <functional>
 
+#include "world/Interactuable.hpp"
+
+// Puerta de salida de una escena. Al interactuar ejecuta una acción
+// (abrir el menú de destinos).
+class Puerta : public Interactuable
+{
 public:
-    Puerta(sf::FloatRect area, const std::string& destinoId);
+    Puerta(const sf::FloatRect& area, std::function<void()> accion);
 
     void interactuar() override;
-};
 
-#endif
+    void dibujar(sf::RenderWindow& ventana,
+                 const sf::Font& fuente) const override;
+
+private:
+    std::function<void()> accion_;
+    sf::RectangleShape forma_;
+};

@@ -1,4 +1,5 @@
 #include "world/Personaje.hpp"
+#include "core/CompatSFML.hpp"
 
 #include <cmath>
 
@@ -157,4 +158,23 @@ void Personaje::dibujar(sf::RenderTarget& destino) const
 
     // Se dibuja la hitbox para facilitar las pruebas.
     destino.draw(hitbox_);
+}
+
+sf::FloatRect Personaje::hitbox() const
+{
+    const sf::Vector2f pos = hitbox_.getPosition();
+    const sf::Vector2f tam = hitbox_.getSize();
+
+    return crearRect(pos.x, pos.y, tam.x, tam.y);
+}
+
+void Personaje::colocar(const sf::Vector2f& posicion)
+{
+    cuerpo_.setPosition(posicion);
+
+    // Mismos desplazamientos que usa el constructor para los pies.
+    hitbox_.setPosition(sf::Vector2f(
+        posicion.x + 5.f,
+        posicion.y + 27.f
+    ));
 }
