@@ -1,0 +1,16 @@
+
+# escena | id | nombre | padre | faseMinima | tipo | fondo | color(r,g,b) | spawnX | spawnY
+
+escena|apartamento|Apartamento|-|1|normal|-|200,180,150|320|250
+escena|universidad|Universidad (patio)|apartamento|1|normal|-|120,170,120|320|250
+escena|discoteca|Discoteca|apartamento|1|animacion|-|120,60,160|0|0
+escena|salon_calculo|Salón de Cálculo|universidad|1|normal|-|180,200,230|320|250
+escena|salon_fisica|Salón de Física|universidad|2|normal|-|190,220,200|320|250
+escena|laboratorio|Laboratorio de Programación|universidad|3|normal|-|170,170,190|320|250
+escena|biblioteca|Biblioteca|universidad|1|normal|-|190,160,130|320|250
+escena|cafeteria|Cafetería|universidad|1|normal|-|230,190,140|320|250
+
+# rectángulos: tipo | idEscena | x | y | ancho | alto
+
+rect_colision|apartamento|40|120|120|60
+rect_salida|apartamento|560|140|50|100
