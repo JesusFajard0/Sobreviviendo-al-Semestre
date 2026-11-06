@@ -1,0 +1,8 @@
+# escena        fases                  dias
+# Fases: manana, tarde, noche, madrugada.  "*" = todas.
+# Dias: lunes, martes, miercoles, jueves, viernes.  "*" = todos.
+# Una escena que no aparece aqui esta siempre abierta.
+
+apartamento     *                      *
+universidad     manana                 lunes,martes,miercoles,jueves,viernes
+discoteca       noche                  viernes
