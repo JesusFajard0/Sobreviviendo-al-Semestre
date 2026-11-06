@@ -21,6 +21,12 @@ public:
     // Dibuja el personaje y su rectángulo de colisión.
     void dibujar(sf::RenderTarget& destino) const;
 
+        // Rectángulo de colisión (los pies), en coordenadas del mundo.
+    sf::FloatRect hitbox() const;
+
+    // Coloca al personaje con la esquina superior izquierda del cuerpo en 'posicion'.
+    void colocar(const sf::Vector2f& posicion);
+
 private:
     // Comprueba si la hitbox colisionaría en una posición determinada.
     bool hayColisionEn(
