@@ -25,7 +25,10 @@ void Interactuable::dibujar(
 {
     if (m_mostrarAviso)
     {
-        sf::Text textoE(fuente, "[E]", 20);
+        // Se crea al doble de tamaño y se reduce a la mitad
+        // para que se vea nítido en la ventana ampliada.
+        sf::Text textoE(fuente, "[E]", 40);
+        textoE.setScale(sf::Vector2f(0.5f, 0.5f));
 
         textoE.setFillColor(sf::Color::Yellow);
 

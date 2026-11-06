@@ -14,3 +14,10 @@ escena|cafeteria|Cafetería|universidad|1|normal|-|230,190,140|320|250
 
 rect_colision|apartamento|40|120|120|60
 rect_salida|apartamento|560|140|50|100
+
+rect_salida|universidad|560|140|50|100
+rect_salida|salon_calculo|560|140|50|100
+rect_salida|salon_fisica|560|140|50|100
+rect_salida|laboratorio|560|140|50|100
+rect_salida|biblioteca|560|140|50|100
+rect_salida|cafeteria|560|140|50|100
