@@ -1,0 +1,21 @@
+# id | nombre | bloque_permitido | cambia_fase | delta_energia | delta_conocimiento | delta_salud_mental | delta_estres | delta_dopamina | delta_dinero | limite_diario
+
+# APARTAMENTO & CASA
+1  | Dormir             | 3  | 1 |  60 |  0  |  20 | -35 |  5   |   0  | 1
+2  | Siesta             | 1  | 1 |  25 |  0  |  10 | -15 |  5   |   0  | 1
+3  | Bañarse            | -1 | 0 |   5 |  0  |  15 | -10 | 10   |   0  | 2
+4  | Lavar_Platos       | -1 | 0 | -10 |  0  |   5 | -10 |  0   |   0  | 1
+5  | Comer_Casa         | -1 | 0 |  15 |  0  |   5 |  -5 |  5   |   0  | 3
+6  | Estudiar_Casa      | -1 | 1 | -20 | 15  |  -5 |  15 | -5   |   0  | 3
+7  | Hacer_Ejercicio    | -1 | 0 | -30 |  0  |  20 | -25 | 15   |   0  | 1
+8  | Usar_Computadora   | -1 | 1 | -15 |  0  |  15 | -20 | 15   |   0  | 2
+9  | Ver_Television     | -1 | 0 |  -5 |  0  |  15 | -15 | 25   |   0  | 2
+
+# UNIVERSIDAD
+10 | Asistir_Clase      | 0  | 1 | -25 | 25  |  -5 |  20 | -10  |   0  | 1
+11 | Estudiar_Biblioteca| 1  | 1 | -30 | 25  |   0 |  10 |  -5  |   0  | 2
+12 | Comer_Cafeteria    | -1 | 0 |  20 |  0  |  10 | -10 | 10   | -15  | 2
+13 | Socializar_Patio   | -1 | 0 |  -5 |  0  |  20 | -20 | 20   |   0  | 2
+
+# SALIDAS / FIESTA
+14 | Ir_Discoteca       | 4  | 1 | -40 |  0  |  30 | -30 | 40   | -50  | 1
