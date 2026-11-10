@@ -27,6 +27,9 @@ public:
     // Coloca al personaje con la esquina superior izquierda del cuerpo en 'posicion'.
     void colocar(const sf::Vector2f& posicion);
 
+        // Mantiene al personaje dentro de un área (por ejemplo, la pantalla).
+    void limitarA(const sf::FloatRect& area);
+
 private:
     // Comprueba si la hitbox colisionaría en una posición determinada.
     bool hayColisionEn(

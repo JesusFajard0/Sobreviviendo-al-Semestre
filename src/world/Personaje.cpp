@@ -2,6 +2,7 @@
 #include "core/CompatSFML.hpp"
 
 #include <cmath>
+#include <algorithm>
 
 // ---------------------------------------------------------------
 // Constructor
@@ -177,4 +178,22 @@ void Personaje::colocar(const sf::Vector2f& posicion)
         posicion.x + 5.f,
         posicion.y + 27.f
     ));
+}
+
+void Personaje::limitarA(const sf::FloatRect& area)
+{
+    const sf::Vector2f origen = posicionRect(area);
+    const sf::Vector2f tamano = tamanoRect(area);
+    const sf::Vector2f tamanoCuerpo = cuerpo_.getSize();
+
+    sf::Vector2f pos = cuerpo_.getPosition();
+
+    pos.x = std::clamp(pos.x, origen.x,
+                       origen.x + tamano.x - tamanoCuerpo.x);
+
+    pos.y = std::clamp(pos.y, origen.y,
+                       origen.y + tamano.y - tamanoCuerpo.y);
+
+    // colocar() mueve también la hitbox de los pies.
+    colocar(pos);
 }
