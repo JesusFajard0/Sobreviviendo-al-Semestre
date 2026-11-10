@@ -21,6 +21,9 @@ public:
     const std::string& id() const { return id_; }
     const sf::Vector2f& spawn() const { return spawn_; }
 
+    // Área por la que puede caminar el personaje.
+    sf::FloatRect limites() const;
+
     const std::vector<sf::RectangleShape>& obstaculos() const
     {
         return obstaculos_;

@@ -38,8 +38,7 @@ Escena::Escena(const DatosEscena& datos,
     }
 }
 
-void Escena::dibujar(sf::RenderWindow& ventana,
-                     const sf::Font& fuente) const
+void Escena::dibujar(sf::RenderWindow& ventana, const sf::Font& fuente) const
 {
     ventana.draw(fondo_);
 
@@ -48,4 +47,9 @@ void Escena::dibujar(sf::RenderWindow& ventana,
 
     if (puerta_)
         puerta_->dibujar(ventana, fuente);
+}
+
+sf::FloatRect Escena::limites() const
+{
+    return crearRect(0.f, 0.f, ANCHO_VISTA, ALTO_VISTA);
 }
