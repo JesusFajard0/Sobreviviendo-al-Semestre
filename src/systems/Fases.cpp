@@ -27,12 +27,12 @@ namespace
         return partes;
     }
 
-    bool leerFase(const std::string& texto, int& indice)
+    bool leerBloque(const std::string& texto, int& indice)
     {
         const std::string t = minusculas(texto);
-        for (int i = 0; i < static_cast<int>(Fase::Cantidad); ++i)
+        for (int i = 0; i < static_cast<int>(Bloque::Cantidad); ++i)
         {
-            if (t == minusculas(Tiempo::nombre(static_cast<Fase>(i))))
+            if (t == minusculas(Tiempo::nombre(static_cast<Bloque>(i))))
             {
                 indice = i;
                 return true;
@@ -55,7 +55,6 @@ namespace
         return false;
     }
 
-    // "*" = todos; si no, una lista separada por comas.
     template <typename Leer>
     bool leerMascara(const std::string& texto, int total, Leer leer, std::uint8_t& mascara)
     {
@@ -83,10 +82,6 @@ Fases::Fases(const Tiempo& tiempo)
 {
 }
 
-// ---------------------------------------------------------------
-// Carga
-// ---------------------------------------------------------------
-
 bool Fases::cargarDesdeArchivo(const std::string& ruta)
 {
     std::ifstream archivo(ruta);
@@ -104,30 +99,29 @@ bool Fases::cargarDesdeArchivo(const std::string& ruta)
     {
         ++numeroLinea;
 
-        // Se ignora lo que venga después de '#'.
         const std::size_t comentario = linea.find('#');
         if (comentario != std::string::npos)
             linea.erase(comentario);
 
         std::istringstream ss(linea);
-        std::string escena, fasesTxt, diasTxt, sobrante;
+        std::string escena, bloquesTxt, diasTxt, sobrante;
 
         if (!(ss >> escena))
-            continue;   // línea vacía o solo comentario
+            continue;
 
-        if (!(ss >> fasesTxt >> diasTxt) || (ss >> sobrante))
+        if (!(ss >> bloquesTxt >> diasTxt) || (ss >> sobrante))
         {
             std::cerr << "[Fases] Linea " << numeroLinea
-                      << ": se esperaban 3 columnas (escena fases dias)\n";
+                      << ": se esperaban 3 columnas (escena bloques dias)\n";
             todoBien = false;
             continue;
         }
 
         Regla regla{escena, 0, 0};
 
-        if (!leerMascara(fasesTxt, static_cast<int>(Fase::Cantidad), leerFase, regla.fases))
+        if (!leerMascara(bloquesTxt, static_cast<int>(Bloque::Cantidad), leerBloque, regla.bloques))
         {
-            std::cerr << "[Fases] Linea " << numeroLinea << ": fases invalidas '" << fasesTxt << "'\n";
+            std::cerr << "[Fases] Linea " << numeroLinea << ": bloques invalidos '" << bloquesTxt << "'\n";
             todoBien = false;
             continue;
         }
@@ -153,22 +147,17 @@ bool Fases::cargarDesdeArchivo(const std::string& ruta)
     return todoBien;
 }
 
-// ---------------------------------------------------------------
-// Consultas
-// ---------------------------------------------------------------
-
-bool Fases::permitidaEn(const std::string& escena, Fase fase, Dia dia) const
+bool Fases::permitidaEn(const std::string& escena, Bloque bloque, Dia dia) const
 {
     const Regla sonda{escena, 0, 0};
     const Regla* regla = reglas_.search(sonda);
 
-    // Sin regla: siempre abierta.
     if (regla == nullptr)
         return true;
 
-    const bool faseAbierta = (regla->fases & (1 << static_cast<int>(fase))) != 0;
-    const bool diaAbierto  = (regla->dias  & (1 << static_cast<int>(dia)))  != 0;
-    return faseAbierta && diaAbierto;
+    const bool bloqueAbierto = (regla->bloques & (1 << static_cast<int>(bloque))) != 0;
+    const bool diaAbierto    = (regla->dias    & (1 << static_cast<int>(dia)))    != 0;
+    return bloqueAbierto && diaAbierto;
 }
 
 bool Fases::escenaPermitida(const std::string& escena) const
@@ -176,7 +165,7 @@ bool Fases::escenaPermitida(const std::string& escena) const
     if (tiempo_.enFinDeSemana() || tiempo_.semestreTerminado())
         return false;
 
-    return permitidaEn(escena, tiempo_.fase(), tiempo_.dia());
+    return permitidaEn(escena, tiempo_.bloque(), tiempo_.dia());
 }
 
 void Fases::limpiar()

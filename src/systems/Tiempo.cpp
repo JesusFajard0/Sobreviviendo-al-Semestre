@@ -9,7 +9,7 @@ void Tiempo::reiniciar()
 {
     semana_        = 1;
     dia_           = Dia::Lunes;
-    fase_          = Fase::Manana;
+    bloque_        = Bloque::Manana;
     enFinDeSemana_ = false;
     terminado_     = false;
 }
@@ -21,14 +21,14 @@ EventoTiempo Tiempo::avanzarBloque()
         return EventoTiempo::Ninguno;
 
     // Dentro del mismo día: mañana -> tarde -> noche -> madrugada.
-    if (fase_ != Fase::Madrugada)
+    if (bloque_ != Bloque::Madrugada)
     {
-        fase_ = static_cast<Fase>(static_cast<int>(fase_) + 1);
+        bloque_ = static_cast<Bloque>(static_cast<int>(bloque_) + 1);
         return EventoTiempo::Ninguno;
     }
 
     // Terminó la madrugada: empieza otro día.
-    fase_ = Fase::Manana;
+    bloque_ = Bloque::Manana;
 
     if (dia_ != Dia::Viernes)
     {
@@ -55,14 +55,14 @@ EventoTiempo Tiempo::terminarFinDeSemana()
 
     enFinDeSemana_ = false;
     ++semana_;
-    dia_  = Dia::Lunes;
-    fase_ = Fase::Manana;
+    dia_    = Dia::Lunes;
+    bloque_ = Bloque::Manana;
     return EventoTiempo::NuevaSemana;
 }
 
 bool Tiempo::esViernesNoche() const
 {
-    return dia_ == Dia::Viernes && fase_ == Fase::Noche;
+    return dia_ == Dia::Viernes && bloque_ == Bloque::Noche;
 }
 
 // ---------------------------------------------------------------
@@ -116,14 +116,14 @@ const char* Tiempo::nombre(Dia d)
     }
 }
 
-const char* Tiempo::nombre(Fase f)
+const char* Tiempo::nombre(Bloque b)
 {
-    switch (f)
+    switch (b)
     {
-        case Fase::Manana:    return "Manana";
-        case Fase::Tarde:     return "Tarde";
-        case Fase::Noche:     return "Noche";
-        case Fase::Madrugada: return "Madrugada";
-        default:              return "?";
+        case Bloque::Manana:    return "Manana";
+        case Bloque::Tarde:     return "Tarde";
+        case Bloque::Noche:     return "Noche";
+        case Bloque::Madrugada: return "Madrugada";
+        default:                return "?";
     }
 }

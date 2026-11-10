@@ -4,8 +4,8 @@
 
 #include "systems/Estadisticas.hpp"   // por Materia
 
-// Momentos del día. Son también las "fases" que usan las puertas.
-enum class Fase
+// Momentos del día (bloques horarios).
+enum class Bloque
 {
     Manana,
     Tarde,
@@ -52,9 +52,9 @@ public:
     // de la siguiente semana.
     EventoTiempo terminarFinDeSemana();
 
-    int  semana() const { return semana_; }   // 1 a SEMANAS
-    Dia  dia()    const { return dia_; }
-    Fase fase()   const { return fase_; }
+    int     semana() const { return semana_; }   // 1 a SEMANAS
+    Dia     dia()    const { return dia_; }
+    Bloque  bloque() const { return bloque_; }
 
     bool enFinDeSemana()     const { return enFinDeSemana_; }
     bool semestreTerminado() const { return terminado_; }
@@ -74,12 +74,12 @@ public:
     std::optional<Materia> examenHoy() const;
 
     static const char* nombre(Dia d);
-    static const char* nombre(Fase f);
+    static const char* nombre(Bloque b);
 
 private:
-    int  semana_;
-    Dia  dia_;
-    Fase fase_;
-    bool enFinDeSemana_;
-    bool terminado_;
+    int     semana_;
+    Dia     dia_;
+    Bloque  bloque_;
+    bool    enFinDeSemana_;
+    bool    terminado_;
 };
