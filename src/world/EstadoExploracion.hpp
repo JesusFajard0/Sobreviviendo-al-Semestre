@@ -10,12 +10,14 @@
 #include "world/Escena.hpp"
 #include "world/MapaEscenas.hpp"
 #include "world/Personaje.hpp"
+#include "systems/Estadisticas.hpp"
+#include "systems/Tiempo.hpp"
 
 // Estado donde el jugador camina por las escenas.
 class EstadoExploracion : public State
 {
 public:
-    EstadoExploracion(StateStack* pila, GestorRecursos& recursos);
+        EstadoExploracion(StateStack* pila, GestorRecursos& recursos, Estadisticas& estadisticas, Tiempo& tiempo);
 
     void handleEvent(const sf::Event& event) override;
     void update(float dt) override;
@@ -27,6 +29,8 @@ private:
     const sf::Font& fuente() const;
 
     GestorRecursos& recursos_;
+    Estadisticas&   estadisticas_;
+    Tiempo&         tiempo_;
     MapaEscenas mapa_;
     std::unique_ptr<Escena> escena_;
     Personaje personaje_;

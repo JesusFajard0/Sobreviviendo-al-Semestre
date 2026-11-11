@@ -7,10 +7,11 @@
 #include "core/StateStack.hpp"
 #include "world/MenuDestinos.hpp"
 
-EstadoExploracion::EstadoExploracion(StateStack* pila,
-                                     GestorRecursos& recursos)
+EstadoExploracion::EstadoExploracion(StateStack* pila, GestorRecursos& recursos, Estadisticas& estadisticas, Tiempo& tiempo)
     : State(pila),
       recursos_(recursos),
+      estadisticas_(estadisticas),
+      tiempo_(tiempo),
       personaje_(),
       fase_(1)
 {

@@ -52,7 +52,7 @@ Juego::Juego()
 
 
     pila_.pushState(
-        std::make_unique<EstadoExploracion>(&pila_, recursos_)
+        std::make_unique<EstadoExploracion>(&pila_, recursos_, estadisticas_,tiempo_)
     );
 }
 

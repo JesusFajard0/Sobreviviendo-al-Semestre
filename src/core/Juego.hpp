@@ -4,6 +4,8 @@
 
 #include "core/GestorRecursos.hpp"
 #include "core/StateStack.hpp"
+#include "systems/Estadisticas.hpp"
+#include "systems/Tiempo.hpp"
 
 // Clase principal del juego: crea la ventana y ejecuta el bucle principal.
 // Orden del bucle en cada cuadro: procesarEventos -> actualizar(dt) -> dibujar.
@@ -26,6 +28,10 @@ private:
     GestorRecursos recursos_;
     sf::View vista_;
     sf::Clock reloj_;
+
+    // Datos de la partida, compartidos por los estados de la pila.
+    Estadisticas estadisticas_;
+    Tiempo       tiempo_;
 
     // Pila de estados (exploración, menús...). Va al final para que
     // se destruya antes que la ventana y los recursos que usa.
