@@ -25,9 +25,12 @@ private:
     // La ventana se declara primero para que se destruya al final.
     sf::RenderWindow ventana_;
     GestorRecursos recursos_;
-    Partida partida_;
     sf::View vista_;
     sf::Clock reloj_;
+
+    // Datos de la partida (estadísticas, tiempo y actividades),
+    // compartidos por los estados de la pila.
+    Partida partida_;
 
     // Pila de estados (exploración, menús...). Va al final para que
     // se destruya antes que la ventana y los recursos que usa.

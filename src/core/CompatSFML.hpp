@@ -2,6 +2,7 @@
 #pragma once
 
 #include <SFML/Graphics.hpp>
+#include <string>
 
 #if SFML_VERSION_MAJOR >= 3
 
@@ -61,3 +62,31 @@ inline sf::Vector2f tamanoRect(
 }
 
 #endif
+
+// ---------------------------------------------------------------
+// Texto (cambia bastante entre SFML 2 y 3)
+// ---------------------------------------------------------------
+
+// Convierte un std::string en UTF-8 a sf::String (para tildes y ñ).
+inline sf::String textoUtf8(const std::string& s)
+{
+    return sf::String::fromUtf8(s.begin(), s.end());
+}
+
+inline sf::Text crearTexto(const sf::Font& fuente, const std::string& utf8, unsigned tamano)
+{
+    #if SFML_VERSION_MAJOR >= 3
+        return sf::Text(fuente, textoUtf8(utf8), tamano);
+    #else
+        return sf::Text(textoUtf8(utf8), fuente, tamano);
+    #endif
+}
+
+inline float anchoTexto(const sf::Text& texto)
+{
+    #if SFML_VERSION_MAJOR >= 3
+        return texto.getLocalBounds().size.x;
+    #else
+        return texto.getLocalBounds().width;
+    #endif
+}
