@@ -15,6 +15,8 @@ EstadoExploracion::EstadoExploracion(StateStack* pila, GestorRecursos& recursos,
       personaje_(),
       fase_(1)
 {
+    hud_.iniciar(recursos_);
+
     if (!mapa_.cargar("data/escenas.txt"))
     {
         std::cerr << "[EstadoExploracion] No se pudo cargar el mapa.\n";
@@ -89,14 +91,26 @@ void EstadoExploracion::abrirMenuDestinos()
 
 void EstadoExploracion::handleEvent(const sf::Event& event)
 {
-    const auto* tecla = event.getIf<sf::Event::KeyPressed>();
-
-    if (tecla == nullptr ||
-        tecla->code != sf::Keyboard::Key::E ||
-        !escena_)
+    // Clic izquierdo: puede ser sobre el botón del HUD.
+    if (const auto* raton = event.getIf<sf::Event::MouseButtonPressed>())
     {
+        if (raton->button == sf::Mouse::Button::Left && ventana_ != nullptr)
+        {
+            hud_.ratonPresionado(
+                ventana_->mapPixelToCoords(raton->position, hud_.vista()));
+        }
         return;
     }
+
+    const auto* tecla = event.getIf<sf::Event::KeyPressed>();
+
+    if (tecla == nullptr)
+        return;
+
+    hud_.teclaPresionada(tecla->code);   // Tab abre/cierra el panel
+
+    if (tecla->code != sf::Keyboard::Key::E || !escena_)
+        return;
 
     Puerta* puerta = escena_->puerta();
 
@@ -109,6 +123,8 @@ void EstadoExploracion::handleEvent(const sf::Event& event)
 
 void EstadoExploracion::update(float dt)
 {
+    hud_.actualizar(dt, estadisticas_, tiempo_);
+
     if (!escena_)
         return;
 
@@ -142,9 +158,13 @@ void EstadoExploracion::update(float dt)
 
 void EstadoExploracion::draw(sf::RenderWindow& window)
 {
+    ventana_ = &window;
+
     if (!escena_)
         return;
 
     escena_->dibujar(window, fuente());
     personaje_.dibujar(window);
+
+    hud_.dibujar(window);   // encima de todo, con su vista fija
 }

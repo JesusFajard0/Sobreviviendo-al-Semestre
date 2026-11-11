@@ -12,6 +12,7 @@
 #include "world/Personaje.hpp"
 #include "systems/Estadisticas.hpp"
 #include "systems/Tiempo.hpp"
+#include "ui/Hud.hpp"
 
 // Estado donde el jugador camina por las escenas.
 class EstadoExploracion : public State
@@ -34,6 +35,13 @@ private:
     MapaEscenas mapa_;
     std::unique_ptr<Escena> escena_;
     Personaje personaje_;
+
+    Hud hud_;
+
+    // Ventana donde se dibujó por última vez: hace falta para convertir
+    // la posición del ratón (píxeles) a coordenadas lógicas del HUD.
+    sf::RenderWindow* ventana_ = nullptr;
+
 
     // Fase actual del semestre (1 = Cálculo, 2 = Física, 3 = Programación).
     // Provisional: fija en 1 hasta que exista el sistema de tiempo.
