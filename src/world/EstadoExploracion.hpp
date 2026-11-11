@@ -51,6 +51,11 @@ private:
 
     Hud hud_;
 
+    // --- Sistema de Caja de Texto Modal ---
+    bool mostrandoMensaje_ = false;
+    sf::RectangleShape fondoMensaje_;
+    sf::Text textoMensaje_;
+
     // Ventana donde se dibujó por última vez: hace falta para convertir
     // la posición del ratón (píxeles) a coordenadas lógicas del HUD.
     sf::RenderWindow* ventana_ = nullptr;

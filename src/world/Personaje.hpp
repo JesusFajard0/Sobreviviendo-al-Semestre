@@ -21,13 +21,16 @@ public:
     // Dibuja el personaje y su rectángulo de colisión.
     void dibujar(sf::RenderTarget& destino) const;
 
-        // Rectángulo de colisión (los pies), en coordenadas del mundo.
+    // Rectángulo de colisión (los pies), en coordenadas del mundo.
     sf::FloatRect hitbox() const;
+
+    // Devuelve la posición actual del personaje (NUEVO)
+    sf::Vector2f posicion() const { return cuerpo_.getPosition(); }
 
     // Coloca al personaje con la esquina superior izquierda del cuerpo en 'posicion'.
     void colocar(const sf::Vector2f& posicion);
 
-        // Mantiene al personaje dentro de un área (por ejemplo, la pantalla).
+    // Mantiene al personaje dentro de un área (por ejemplo, la pantalla).
     void limitarA(const sf::FloatRect& area);
 
 private:
