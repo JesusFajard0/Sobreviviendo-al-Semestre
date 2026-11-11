@@ -3,6 +3,7 @@
 #include <SFML/Graphics.hpp>
 
 #include "core/GestorRecursos.hpp"
+#include "core/Partida.hpp"
 #include "core/StateStack.hpp"
 
 // Clase principal del juego: crea la ventana y ejecuta el bucle principal.
@@ -24,6 +25,7 @@ private:
     // La ventana se declara primero para que se destruya al final.
     sf::RenderWindow ventana_;
     GestorRecursos recursos_;
+    Partida partida_;
     sf::View vista_;
     sf::Clock reloj_;
 
