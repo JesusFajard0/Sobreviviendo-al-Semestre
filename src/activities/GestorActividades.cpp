@@ -170,7 +170,7 @@ bool GestorActividades::cargarDesdeArchivo(const std::string& ruta)
             !d.id.empty() && !d.nombre.empty() &&
             leerMascara(c[2], static_cast<int>(Bloque::Cantidad), leerBloque, d.bloques) &&
             leerMascara(c[3], static_cast<int>(Dia::Cantidad), leerDia, d.dias) &&
-            leerEntero(c[4], gasta) && (gasta == 0 || gasta == 1) &&
+            leerEntero(c[4], gasta) && gasta >= 0 && gasta <= 2 &&
             leerFloat(c[5],  d.deltaEnergia) &&
             leerFloat(c[6],  d.deltaConocimiento) &&
             leerFloat(c[7],  d.deltaSaludMental) &&
@@ -187,7 +187,7 @@ bool GestorActividades::cargarDesdeArchivo(const std::string& ruta)
             continue;
         }
 
-        d.gastaBloque = (gasta == 1);
+        d.gasto = static_cast<GastoTiempo>(gasta);
 
         if (buscarEntrada(d.id) != nullptr)
         {
@@ -313,11 +313,19 @@ ResultadoActividad GestorActividades::ejecutar(const std::string& id,
     ++e->usosHoy;
     resultado.estado = EstadoActividad::Hecha;
 
-    // Una actividad que gasta bloque avanza el tiempo. Si cambió el día
-    // (o llegó el fin de semana o el fin del semestre) se reinician los contadores.
-    if (d.gastaBloque)
+    // Una actividad que gasta tiempo avanza el reloj. "HastaAmanecer" sigue
+    // avanzando hasta que cambie el día. Si cambió el día (o llegó el fin de
+    // semana o el fin del semestre) se reinician los contadores diarios.
+    if (d.gasto != GastoTiempo::Ninguno)
     {
         resultado.evento = tiempo.avanzarBloque();
+
+        while (d.gasto == GastoTiempo::HastaAmanecer &&
+               resultado.evento == EventoTiempo::Ninguno)
+        {
+            resultado.evento = tiempo.avanzarBloque();
+        }
+
         if (resultado.evento != EventoTiempo::Ninguno)
             reiniciarContadores();
     }
@@ -350,8 +358,8 @@ const char* GestorActividades::mensaje(EstadoActividad estado)
     {
         case EstadoActividad::FueraDeHorario:   return "No se puede hacer a esta hora";
         case EstadoActividad::LimiteAlcanzado:  return "Ya lo hiciste el maximo de veces hoy";
-        case EstadoActividad::SinDinero:        return "No tienes dinero suficiente";
         case EstadoActividad::SinTiempo:        return "No hay tiempo ahora";
+        case EstadoActividad::SinDinero:        return "No tienes dinero suficiente";
         case EstadoActividad::NoExiste:         return "Actividad desconocida";
         default:                                return "";
     }

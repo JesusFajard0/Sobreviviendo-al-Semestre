@@ -3,9 +3,8 @@
 #include <SFML/Graphics.hpp>
 
 #include "core/GestorRecursos.hpp"
+#include "core/Partida.hpp"
 #include "core/StateStack.hpp"
-#include "systems/Estadisticas.hpp"
-#include "systems/Tiempo.hpp"
 
 // Clase principal del juego: crea la ventana y ejecuta el bucle principal.
 // Orden del bucle en cada cuadro: procesarEventos -> actualizar(dt) -> dibujar.
@@ -29,9 +28,9 @@ private:
     sf::View vista_;
     sf::Clock reloj_;
 
-    // Datos de la partida, compartidos por los estados de la pila.
-    Estadisticas estadisticas_;
-    Tiempo       tiempo_;
+    // Datos de la partida (estadísticas, tiempo y actividades),
+    // compartidos por los estados de la pila.
+    Partida partida_;
 
     // Pila de estados (exploración, menús...). Va al final para que
     // se destruya antes que la ventana y los recursos que usa.

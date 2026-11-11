@@ -50,9 +50,13 @@ Juego::Juego()
         std::cerr << "[Juego] No se pudo cargar la fuente principal.\n";
     }
 
+    if (!partida_.actividades.cargarDesdeArchivo("data/actividades.txt"))
+    {
+        std::cerr << "[Juego] Hubo problemas al cargar data/actividades.txt.\n";
+    }
 
     pila_.pushState(
-        std::make_unique<EstadoExploracion>(&pila_, recursos_, estadisticas_,tiempo_)
+        std::make_unique<EstadoExploracion>(&pila_, recursos_, partida_)
     );
 }
 

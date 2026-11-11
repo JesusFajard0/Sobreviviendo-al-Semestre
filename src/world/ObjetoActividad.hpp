@@ -1,17 +1,33 @@
-#ifndef OBJETO_ACTIVIDAD_HPP
-#define OBJETO_ACTIVIDAD_HPP
+#pragma once
 
-#include "Interactuable.hpp"
-#include <iostream>
+#include <SFML/Graphics.hpp>
+
+#include <functional>
 #include <string>
 
-class ObjetoActividad : public Interactuable {
-private:
-    std::string m_nombreActividad;
+#include "world/Interactuable.hpp"
 
+// Objeto de una escena que permite hacer una actividad (cama, computadora...).
+// Al interactuar avisa con el id de la actividad; quien lo creó decide qué
+// pasa (igual que Puerta).
+class ObjetoActividad : public Interactuable
+{
 public:
-    ObjetoActividad(sf::FloatRect area, const std::string& nombreActividad);
-    void interactuar() override;
-};
+    ObjetoActividad(const sf::FloatRect& area,
+                    const std::string& idActividad,
+                    const std::string& etiqueta,
+                    std::function<void(const std::string&)> alUsar);
 
-#endif
+    void interactuar() override;
+
+    void dibujar(sf::RenderWindow& ventana,
+                 const sf::Font& fuente) const override;
+
+    const std::string& idActividad() const { return idActividad_; }
+
+private:
+    std::string idActividad_;
+    std::string etiqueta_;
+    std::function<void(const std::string&)> alUsar_;
+    sf::RectangleShape forma_;
+};

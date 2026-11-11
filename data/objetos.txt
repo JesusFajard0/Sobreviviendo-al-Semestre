@@ -1,0 +1,22 @@
+# objeto | idEscena | idActividad | x | y | ancho | alto
+#
+# Cada objeto es una zona donde el jugador, parado sobre ella, ve "[E]" y puede
+# hacer la actividad (id de data/actividades.txt). La vista mide 640 x 360.
+# Mientras no haya arte, se dibuja como un rectangulo con el nombre encima.
+
+# --- Apartamento (fila de arriba) ---
+objeto | apartamento | dormir          |  20 |  50 | 80 | 28
+objeto | apartamento | siesta          | 130 |  50 | 80 | 28
+objeto | apartamento | ducharse        | 240 |  50 | 80 | 28
+objeto | apartamento | lavar_platos    | 350 |  50 | 80 | 28
+objeto | apartamento | comer_casa      | 460 |  50 | 80 | 28
+
+# --- Apartamento (fila de abajo) ---
+objeto | apartamento | estudiar_casa   |  20 | 300 | 80 | 28
+objeto | apartamento | ejercicio       | 130 | 300 | 80 | 28
+objeto | apartamento | computadora     | 240 | 300 | 80 | 28
+objeto | apartamento | television      | 350 | 300 | 80 | 28
+
+# --- Universidad ---
+objeto | biblioteca  | estudiar_biblio | 250 |  90 | 140 | 50
+objeto | cafeteria   | comer_cafeteria | 250 |  90 | 140 | 50
