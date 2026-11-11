@@ -28,6 +28,8 @@ private:
     void cambiarEscena(const std::string& id);
     void abrirMenuDestinos();
     const sf::Font& fuente() const;
+        // TEMPORAL (S1-7): borrar antes del Pull Request.
+    void teclaDepuracion(sf::Keyboard::Key tecla, bool fino);
 
     GestorRecursos& recursos_;
     Estadisticas&   estadisticas_;
