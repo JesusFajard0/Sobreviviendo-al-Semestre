@@ -132,7 +132,6 @@ void EstadoExploracion::update(float dt)
 
     personaje_.actualizar(dt, direccion, escena_->obstaculos());
 
-    personaje_.actualizar(dt, direccion, escena_->obstaculos());
     personaje_.limitarA(escena_->limites());   // <-- línea nueva
 
     // Actualiza si se muestra el aviso "[E]".
