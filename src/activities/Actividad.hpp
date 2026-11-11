@@ -10,6 +10,14 @@
 #include "systems/Estadisticas.hpp"
 #include "systems/Tiempo.hpp"
 
+// Cuánto tiempo gasta una actividad.
+enum class GastoTiempo
+{
+    Ninguno,        // acción rápida: no gasta bloque
+    UnBloque,       // gasta un bloque
+    HastaAmanecer   // pasa el resto de la noche: avanza hasta el día siguiente
+};
+
 struct DatosActividad
 {
     std::string  id;       // identificador sin espacios (p. ej. "dormir")
@@ -19,7 +27,7 @@ struct DatosActividad
     std::uint8_t bloques;
     std::uint8_t dias;
 
-    bool gastaBloque;      // true: consume un bloque de tiempo; false: acción rápida
+    GastoTiempo gasto;
 
     float deltaEnergia;
     float deltaConocimiento;   // se suma a la materia activa
