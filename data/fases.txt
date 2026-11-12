@@ -1,8 +1,16 @@
-# escena        fases                  dias
-# Fases: manana, tarde, noche, madrugada.  "*" = todas.
-# Dias: lunes, martes, miercoles, jueves, viernes.  "*" = todos.
-# Una escena que no aparece aqui esta siempre abierta.
+# escena          bloques del dia             dias
+# bloques: manana, tarde, noche, madrugada (separados por coma) o "*" = todos
+# dias:    lunes, martes, miercoles, jueves, viernes (separados por coma) o "*" = todos
+# Una escena que no aparece aqui esta siempre abierta (p. ej. el apartamento).
+# Si una escena cierra mientras el jugador esta dentro, vuelve al apartamento.
 
-apartamento     *                      *
-universidad     manana                 lunes,martes,miercoles,jueves,viernes
-discoteca       noche                  viernes
+# --- Universidad y todo lo que hay dentro: solo de manana y tarde ---
+universidad       manana,tarde                *
+salon_calculo     manana,tarde                *
+salon_fisica      manana,tarde                *
+laboratorio       manana,tarde                *
+biblioteca        manana,tarde                *
+cafeteria         manana,tarde                *
+
+# --- Discoteca: solo el viernes de noche o de madrugada ---
+discoteca         noche,madrugada             viernes

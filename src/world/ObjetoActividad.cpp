@@ -45,7 +45,7 @@ void ObjetoActividad::dibujar(sf::RenderWindow& ventana,
 {
     ventana.draw(forma_);
 
-    // Nombre centrado encima del objeto.
+    // Nombre centrado debajo del objeto (el aviso "[E]" va arriba).
     sf::Text texto(fuente, aTexto(etiqueta_), 10 * ESCALA_TEXTO);
     texto.setScale(sf::Vector2f(1.f / ESCALA_TEXTO, 1.f / ESCALA_TEXTO));
     texto.setFillColor(sf::Color::White);
@@ -56,7 +56,7 @@ void ObjetoActividad::dibujar(sf::RenderWindow& ventana,
 
     texto.setPosition(sf::Vector2f(
         posicion.x + (tamano.x - tamanoTexto.x) / 2.f,
-        posicion.y - tamanoTexto.y - 8.f
+        posicion.y + tamano.y + 4.f
     ));
 
     ventana.draw(texto);

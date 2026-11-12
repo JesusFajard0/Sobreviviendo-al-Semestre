@@ -6,13 +6,20 @@
 
 #include "activities/GestorActividades.hpp"
 #include "systems/Estadisticas.hpp"
+#include "systems/Fases.hpp"
 #include "systems/Tiempo.hpp"
 
 struct Partida
 {
+    Partida();
+
     Estadisticas      estadisticas;
     Tiempo            tiempo;
     GestorActividades actividades;
+
+    // Horarios de las escenas (data/fases.txt). Va después de "tiempo"
+    // porque guarda una referencia a él.
+    Fases             fases;
 
     // Materia del próximo examen: Cálculo hasta la semana 3, Física en las
     // semanas 4 y 5, y Programación de la 6 a la 8.
@@ -21,4 +28,4 @@ struct Partida
     // Fase del semestre que usan las puertas (faseMinima en data/escenas.txt):
     // 1 = Cálculo, 2 = Física, 3 = Programación.
     int faseSemestre() const;
-};  
+};

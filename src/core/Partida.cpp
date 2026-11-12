@@ -1,5 +1,10 @@
 #include "core/Partida.hpp"
 
+Partida::Partida()
+    : fases(tiempo)
+{
+}
+
 Materia Partida::materiaActiva() const
 {
     const int n = static_cast<int>(Materia::Cantidad);
