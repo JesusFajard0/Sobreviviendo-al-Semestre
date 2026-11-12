@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iostream>
 #include <utility>
+#include <optional>
 
 namespace
 {
@@ -342,6 +343,27 @@ void GestorActividades::reiniciarContadores()
             e->usosHoy = 0;
     }
 }
+
+// ---------------------------------------------------------------
+// Exámenes
+// ---------------------------------------------------------------
+
+bool GestorActividades::hayExamenDisponible(const Tiempo& tiempo, const std::string& idEscena) const
+{
+    std::optional<Materia> examen = tiempo.examenHoy();
+    if (!examen.has_value())
+        return false;
+
+    if (idEscena == "salon_calculo" && examen.value() == Materia::Calculo)
+        return true;
+    if (idEscena == "salon_fisica" && examen.value() == Materia::Fisica)
+        return true;
+    if (idEscena == "laboratorio" && examen.value() == Materia::Programacion)
+        return true;
+
+    return false;
+}
+
 
 // ---------------------------------------------------------------
 // Extras

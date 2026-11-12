@@ -117,15 +117,31 @@ void EstadoExploracion::cambiarEscena(const std::string& id)
 
     crearObjetos(id);
 }
-
 void EstadoExploracion::crearObjetos(const std::string& idEscena)
 {
     objetos_.clear();
+
+    std::optional<Materia> examenHoy = tiempo_.examenHoy();
+    bool esMañanaDeExamen = examenHoy.has_value() && (tiempo_.bloque() == Bloque::Manana);
 
     for (const DatosObjeto& d : datosObjetos_)
     {
         if (d.escena != idEscena)
             continue;
+
+        // Si es la mañana del examen, ocultamos el botón de "asistir_clase" del salón correspondiente
+        if (esMañanaDeExamen && d.actividad == "asistir_clase")
+        {
+            bool esSalonCorrespondiente = 
+                (idEscena == "salon_calculo" && examenHoy.value() == Materia::Calculo) ||
+                (idEscena == "salon_fisica" && examenHoy.value() == Materia::Fisica) ||
+                (idEscena == "laboratorio" && examenHoy.value() == Materia::Programacion);
+
+            if (esSalonCorrespondiente)
+            {
+                continue; // Salta esta iteración para no dibujar el botón de clase
+            }
+        }
 
         const DatosActividad* actividad = partida_.actividades.buscar(d.actividad);
 
@@ -142,15 +158,95 @@ void EstadoExploracion::crearObjetos(const std::string& idEscena)
             actividad->nombre,
             [this](const std::string& id) { usarActividad(id); }
         ));
+    } // <--- El bucle for termina aquí afuera
+
+    // --- INSTANCIACIÓN DINÁMICA DE EXÁMENES (Solo en la mañana del examen) ---
+    if (esMañanaDeExamen)
+    {
+        bool mostrarExamen = false;
+        if (idEscena == "salon_calculo" && examenHoy.value() == Materia::Calculo)
+            mostrarExamen = true;
+        else if (idEscena == "salon_fisica" && examenHoy.value() == Materia::Fisica)
+            mostrarExamen = true;
+        else if (idEscena == "laboratorio" && examenHoy.value() == Materia::Programacion)
+            mostrarExamen = true;
+
+        if (mostrarExamen)
+        {
+            const DatosActividad* actExamen = partida_.actividades.buscar("presentar_examen");
+            if (actExamen != nullptr)
+            {
+                objetos_.push_back(std::make_unique<ObjetoActividad>(
+                    crearRect(250.f, 90.f, 140.f, 50.f),
+                    "presentar_examen",
+                    actExamen->nombre,
+                    [this](const std::string& id) { usarActividad(id); }
+                ));
+            }
+        }
     }
 }
-
 // ---------------------------------------------------------------
 // Actividades y mensajes
 // ---------------------------------------------------------------
-
 void EstadoExploracion::usarActividad(const std::string& idActividad)
 {
+    // --- LECTURA DEL MANUAL DEL ESTUDIANTE (Inicia la Pág. 1, continúa en handleEvent) ---
+    if (idActividad == "leer_manual")
+    {
+        paginaManual_ = 1;
+        mostrarMensaje(
+            "== MANUAL DEL ESTUDIANTE (1/4) ==\n\n"
+            "• Asiste siempre a clases en la mañana (evita faltar).\n"
+            "• Los viernes de las semanas 3, 5 y 8 son los exámenes parciales.\n"
+            "• Biblioteca y Cafetería: Dan mejores beneficios de conocimiento y\n"
+            "  bienestar, aunque sacrificas un poco más de energía o dinero.\n\n"
+            "(Presiona ENTER para ver la página 2)"
+        );
+        return;
+    }
+    // -----------------------------------------------------------------
+
+    // --- VALIDACIÓN DE CURSO TERMINADO ---
+    if (idActividad == "asistir_clase" && escena_)
+    {
+        std::string idEscena = escena_->id();
+        int semanaActual = partida_.tiempo.semana();
+        bool cursoTerminado = false;
+        std::string nombreMateria = "";
+
+        // Cálculo termina después de la semana 3
+        if (idEscena == "salon_calculo" && semanaActual > 3)
+        {
+            cursoTerminado = true;
+            nombreMateria = "Cálculo";
+        }
+        // Física termina después de la semana 5
+        else if (idEscena == "salon_fisica" && semanaActual > 5)
+        {
+            cursoTerminado = true;
+            nombreMateria = "Física";
+        }
+        // Programación termina después de la semana 8
+        else if (idEscena == "laboratorio" && semanaActual > 8)
+        {
+            cursoTerminado = true;
+            nombreMateria = "Programación";
+        }
+
+        if (cursoTerminado)
+        {
+            mostrarMensaje(
+                "== CURSO TERMINADO ==\n\n"
+                "El periodo de clases de " + nombreMateria + " ya concluyó.\n"
+                "Este curso ha finalizado.\n\n"
+                "(Presiona ENTER)"
+            );
+            return;
+        }
+    }
+    // -------------------------------------
+
     const ResultadoActividad r = partida_.actividades.ejecutar(
         idActividad,
         partida_.estadisticas,
@@ -160,11 +256,19 @@ void EstadoExploracion::usarActividad(const std::string& idActividad)
 
     if (!r.hecha())
     {
-        std::cout << "[Actividad] " << GestorActividades::mensaje(r.estado) << '\n';
+        std::string mensajeError = GestorActividades::mensaje(r.estado);
+
+        // Mensaje personalizado si intenta asistir a clase fuera de la mañana
+        if (idActividad == "asistir_clase" && partida_.tiempo.bloque() != Bloque::Manana)
+        {
+            mensajeError = "Solo puedes asistir a clases en la mañana.";
+        }
+
+        std::cout << "[Actividad] " << mensajeError << '\n';
 
         mostrarMensaje(
             std::string("[ Aviso ]\n\n") +
-            GestorActividades::mensaje(r.estado) +
+            mensajeError +
             "\n\n(Presiona ENTER)"
         );
         return;
@@ -213,7 +317,6 @@ void EstadoExploracion::usarActividad(const std::string& idActividad)
 
     mostrarMensaje(contenido);
 }
-
 void EstadoExploracion::mostrarMensaje(const std::string& texto)
 {
     textoMensaje_.setString(textoUtf8(texto));
@@ -249,13 +352,29 @@ void EstadoExploracion::revisarEventosTiempo()
     if (mostrandoMensaje_)
         return;
 
+    // --- GUÍA DEL ESTUDIANTE (Al iniciar la partida) ---
+    if (!guiaInicialMostrada_ && tiempo_.semana() == 1 && tiempo_.dia() == Dia::Lunes && tiempo_.bloque() == Bloque::Manana)
+    {
+        guiaInicialMostrada_ = true;
+        mostrarMensaje(
+            "== GUÍA DEL ESTUDIANTE ==\n\n"
+            "• Ve a clases siempre en la mañana (evita faltar).\n"
+            "• Los viernes de las semanas 3, 5 y 8 son los exámenes parciales.\n"
+            "• Revisa el Manual en el apartamento para ver los límites de cada actividad.\n"
+            "• Cuida tu energía y tu estrés durmiendo o descansando.\n\n"
+            "(Presiona ENTER para comenzar)"
+        );
+        return;
+    }
+    // ----------------------------------------------------
+
+    // --- 0. FIN DE SEMANA (Debe ir PRIMERO para que no salten avisos de clases/exámenes en el descanso) ---
     if (tiempo_.enFinDeSemana())
     {
-        // Provisional: aquí irá la animación del fin de semana
-        // (con su resultado aleatorio). Por ahora solo un cuadro de texto.
         const int semanaQueTermina = tiempo_.semana();
 
         tiempo_.terminarFinDeSemana();
+        partida_.actividades.reiniciarContadores(); 
         const float mesada = GestorActividades::aplicarMesada(estadisticas_);
 
         std::cout << "[Tiempo] Fin de semana: empieza la semana "
@@ -277,7 +396,6 @@ void EstadoExploracion::revisarEventosTiempo()
 
         std::cout << "[Tiempo] Fin del semestre.\n";
 
-        // Provisional: aquí irán la animación final y el resumen con los finales.
         mostrarMensaje(
             "== Fin del semestre ==\n\n"
             "Terminaste las " + std::to_string(Tiempo::SEMANAS) + " semanas.\n"
@@ -288,8 +406,74 @@ void EstadoExploracion::revisarEventosTiempo()
         return;
     }
 
-    // Si la escena actual cerró por la hora (p. ej. la universidad de noche),
-    // el jugador vuelve al apartamento.
+    // Detector de cambio de bloque: resetea las banderas solo cuando entramos a un nuevo bloque/mañana
+    static Bloque bloqueAnterior = static_cast<Bloque>(-1);
+    Bloque bloqueActual = tiempo_.bloque();
+
+    if (bloqueActual != bloqueAnterior)
+    {
+        if (bloqueActual == Bloque::Manana)
+        {
+            avisoExamenMostradoHoy = false;
+            avisoOlvidoExamenMostradoHoy = false;
+            faltaClaseVerificadaHoy = false;
+        }
+        bloqueAnterior = bloqueActual;
+    }
+
+    // --- 1. AVISO DE EXAMEN POR LA MAÑANA ---
+    std::optional<Materia> examenMat = tiempo_.examenHoy();
+    if (examenMat.has_value() && tiempo_.bloque() == Bloque::Manana && !avisoExamenMostradoHoy)
+    {
+        avisoExamenMostradoHoy = true;
+        std::string nombreMat = "";
+        if (examenMat.value() == Materia::Calculo) nombreMat = "Cálculo";
+        else if (examenMat.value() == Materia::Fisica) nombreMat = "Física";
+        else if (examenMat.value() == Materia::Programacion) nombreMat = "Programación";
+
+        mostrarMensaje(
+            "== ¡DÍA DE EXAMEN! ==\n\n"
+            "Hoy tienes el parcial de " + nombreMat + ".\n"
+            "Dirígete al salón correspondiente.\n\n"
+            "(Presiona ENTER)"
+        );
+        return;
+    }
+
+    // --- 2. AVISO DE EXAMEN OLVIDADO (Si pasa a la tarde/noche del viernes sin hacerlo) ---
+    if (examenMat.has_value() && tiempo_.bloque() != Bloque::Manana && !avisoOlvidoExamenMostradoHoy)
+    {
+        if (partida_.actividades.usosHoy("presentar_examen") == 0)
+        {
+            avisoOlvidoExamenMostradoHoy = true;
+            mostrarMensaje(
+                "== EXAMEN NO PRESENTADO ==\n\n"
+                "Se pasó el horario del parcial.\n"
+                "¡Se te olvidó el examen o no fuiste a tiempo!\n\n"
+                "(Presiona ENTER)"
+            );
+            return;
+        }
+    }
+
+    // --- 3. AVISO DE "FALTASTE A CLASE" AL PASAR A LA TARDE ---
+    if (tiempo_.bloque() == Bloque::Tarde && !faltaClaseVerificadaHoy)
+    {
+        faltaClaseVerificadaHoy = true; 
+
+        if (partida_.actividades.usosHoy("asistir_clase") == 0 && !examenMat.has_value())
+        {
+            mostrarMensaje(
+                "== AVISO ==\n\n"
+                "Pasó la mañana y no fuiste a la universidad.\n"
+                "¡Faltaste a clase!\n\n"
+                "(Presiona ENTER)"
+            );
+            return;
+        }
+    }
+
+    // Si la escena actual cerró por la hora
     if (escena_ && escena_->id() != mapa_.raiz())
     {
         const std::string idActual = escena_->id();
@@ -379,7 +563,7 @@ void EstadoExploracion::abrirMenuDestinos()
 
 void EstadoExploracion::handleEvent(const sf::Event& event)
 {
-    // Con una caja abierta solo se escucha ENTER o E para cerrarla.
+    // Con una caja abierta solo se escucha ENTER o E para cerrarla o avanzar página.
     if (mostrandoMensaje_)
     {
         const auto* tecla = event.getIf<sf::Event::KeyPressed>();
@@ -388,7 +572,54 @@ void EstadoExploracion::handleEvent(const sf::Event& event)
             (tecla->code == sf::Keyboard::Key::Enter ||
              tecla->code == sf::Keyboard::Key::E))
         {
-            mostrandoMensaje_ = false;
+            // --- NAVEGACIÓN CONTINUA DEL MANUAL ---
+            if (paginaManual_ > 0)
+            {
+                paginaManual_++;
+                if (paginaManual_ == 2)
+                {
+                    mostrarMensaje(
+                        "== MANUAL DEL ESTUDIANTE (2/4) ==\n\n"
+                        "• Ocio y Fiestas:\n"
+                        "  Los viernes por la noche y madrugada hay discoteca.\n"
+                        "  Puedes ir para mejorar tu dopamina y bajar el estrés,\n"
+                        "  pero ten en cuenta que gastas bastante dinero.\n\n"
+                        "(Presiona ENTER para ver la página 3)"
+                    );
+                }
+                else if (paginaManual_ == 3)
+                {
+                    mostrarMensaje(
+                        "== MANUAL DEL ESTUDIANTE (3/4) ==\n\n"
+                        "• Actividades con Límite Diario (Acciones rápidas - No gastan bloque):\n"
+                        "  - Comer en casa (máx. 3/día) | Ducharse (máx. 2/día)\n"
+                        "  - Lavar platos (máx. 1/día)   | Hacer ejercicio (máx. 1/día)\n"
+                        "  - Siesta (máx. 1/día)        | Comer en cafetería (máx. 2/día)\n\n"
+                        "(Presiona ENTER para ver la página 4)"
+                    );
+                }
+                else if (paginaManual_ == 4)
+                {
+                    mostrarMensaje(
+                        "== MANUAL DEL ESTUDIANTE (4/4) ==\n\n"
+                        "• Actividades que Avanzan el Bloque de Tiempo:\n"
+                        "  - Estudiar en casa (máx. 3/día)\n"
+                        "  - Estudiar en biblioteca (máx. 2/día)\n"
+                        "  - Usar la computadora (máx. 2/día)\n"
+                        "  - Dormir (noche/madrugada) y Asistir a clases (mañana)\n\n"
+                        "(Presiona ENTER para cerrar el manual)"
+                    );
+                }
+                else
+                {
+                    paginaManual_ = 0;
+                    mostrandoMensaje_ = false;
+                }
+            }
+            else
+            {
+                mostrandoMensaje_ = false;
+            }
         }
         return;
     }
@@ -435,7 +666,6 @@ void EstadoExploracion::handleEvent(const sf::Event& event)
         }
     }
 }
-
 void EstadoExploracion::update(float dt)
 {
     hud_.actualizar(dt, estadisticas_, tiempo_);
@@ -531,7 +761,15 @@ void EstadoExploracion::teclaDepuracion(sf::Keyboard::Key tecla, bool fino)
             estadisticas_.modificarConocimiento(static_cast<Materia>(i), paso);
         break;
 
-    case Tecla::T: tiempo_.avanzarBloque();       break;
+    case Tecla::T: 
+    {
+        EventoTiempo ev = tiempo_.avanzarBloque();
+        if (ev == EventoTiempo::NuevoDia || ev == EventoTiempo::NuevaSemana)
+        {
+            partida_.actividades.reiniciarContadores();
+        }
+        break;
+    }
     case Tecla::Y: tiempo_.terminarFinDeSemana(); break;
 
     default: break;

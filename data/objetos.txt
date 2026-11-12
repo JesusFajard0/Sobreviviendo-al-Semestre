@@ -15,8 +15,13 @@ objeto | apartamento | comer_casa      | 460 |  50 | 80 | 28
 objeto | apartamento | estudiar_casa   |  20 | 300 | 80 | 28
 objeto | apartamento | ejercicio       | 130 | 300 | 80 | 28
 objeto | apartamento | computadora     | 240 | 300 | 80 | 28
-objeto | apartamento | television      | 350 | 300 | 80 | 28
+objeto | apartamento | leer_manual     | 350 | 300 | 80 | 28
 
 # --- Universidad ---
 objeto | biblioteca  | estudiar_biblio | 250 |  90 | 140 | 50
 objeto | cafeteria   | comer_cafeteria | 250 |  90 | 140 | 50
+
+# --- Salones de Clase ---
+objeto | salon_calculo | asistir_clase | 250 | 150 | 140 | 50
+objeto | salon_fisica  | asistir_clase | 250 | 150 | 140 | 50
+objeto | laboratorio   | asistir_clase | 250 | 150 | 140 | 50
