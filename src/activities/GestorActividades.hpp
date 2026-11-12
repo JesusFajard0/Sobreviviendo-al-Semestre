@@ -46,6 +46,9 @@ public:
     // Pone en cero los contadores diarios (se llama solo cuando cambia el día).
     void reiniciarContadores();
 
+    // Indica si hoy hay examen en la escena actual.
+    bool hayExamenDisponible(const Tiempo& tiempo, const std::string& idEscena) const;
+
     // Dinero que envían los padres cada semana. Lo llama quien reciba
     // el evento NuevaSemana.
     static constexpr float MESADA = 100.f;

@@ -17,13 +17,14 @@ comer_casa      | Comer en casa        | *              | * | 0 |  15 |  0 |   5
 estudiar_casa   | Estudiar en casa     | *              | * | 1 | -20 | 15 |  -5 |  15 |  -5 |   0 | 3
 ejercicio       | Hacer ejercicio      | *              | * | 0 | -30 |  0 |  20 | -25 |  15 |   0 | 1
 computadora     | Usar la computadora  | *              | * | 1 | -15 |  0 |  15 | -20 |  15 |   0 | 2
-television      | Ver television       | *              | * | 0 |  -5 |  0 |  15 | -15 |  25 |   0 | 2
+leer_manual     | Manual del estudiante | *             | * | 0 |   0 |  0 |   0 |   0 |   0 |   0 | -1
 
 # --- Universidad (solo se esta alli de manana y tarde) ---
 asistir_clase   | Asistir a clase      | manana         | * | 1 | -25 | 25 |  -5 |  20 | -10 |   0 | 1
 estudiar_biblio | Estudiar en biblioteca | manana,tarde | * | 1 | -30 | 25 |   0 |  10 |  -5 |   0 | 2
 comer_cafeteria | Comer en cafeteria   | manana,tarde   | * | 0 |  20 |  0 |  10 | -10 |  10 | -15 | 2
 socializar      | Socializar en el patio | manana,tarde | * | 0 |  -5 |  0 |  20 | -20 |  20 |   0 | 2
+presentar_examen| Presentar examen     | manana,tarde   | viernes | 1 | -40 | 0 | -20 |  50 | -10 |   0 | 1
 
 # --- Salidas ---
 discoteca       | Ir a la discoteca    | noche,madrugada | viernes | 1 | -40 | 0 | 30 | -30 |  40 | -50 | 1

@@ -68,6 +68,15 @@ private:
     // Para avisar del fin del semestre una sola vez.
     bool finSemestreMostrado_ = false;
 
+    // Para mostrar la guía del estudiante al iniciar la partida
+    bool guiaInicialMostrada_ = false;
+
+    // Banderas de control para exámenes y asistencias
+    bool avisoExamenMostradoHoy = false;
+    bool avisoOlvidoExamenMostradoHoy = false;
+    bool faltaClaseVerificadaHoy = false;
+// Para controlar la paginación interactiva del manual del estudiante
+    int paginaManual_ = 0;
     // Ventana donde se dibujó por última vez: hace falta para convertir
     // la posición del ratón (píxeles) a coordenadas lógicas del HUD.
     sf::RenderWindow* ventana_ = nullptr;
