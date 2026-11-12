@@ -33,6 +33,15 @@ private:
     void abrirMenuDestinos();
     void crearObjetos(const std::string& idEscena);
     void usarActividad(const std::string& idActividad);
+
+    // Caja de texto modal: pausa el juego hasta que se pulse ENTER o E.
+    // Se coloca encima del personaje sin salirse de la pantalla.
+    void mostrarMensaje(const std::string& texto);
+
+    // Fin de semana y fin de semestre: se revisan en cada cuadro, sin importar
+    // si los provocó una actividad o una tecla de depuración.
+    void revisarEventosTiempo();
+
     const sf::Font& fuente() const;
 
     // TEMPORAL (S1-7): borrar antes del Pull Request.
@@ -51,10 +60,13 @@ private:
 
     Hud hud_;
 
-    // --- Sistema de Caja de Texto Modal ---
+    // --- Caja de texto modal ---
     bool mostrandoMensaje_ = false;
     sf::RectangleShape fondoMensaje_;
     sf::Text textoMensaje_;
+
+    // Para avisar del fin del semestre una sola vez.
+    bool finSemestreMostrado_ = false;
 
     // Ventana donde se dibujó por última vez: hace falta para convertir
     // la posición del ratón (píxeles) a coordenadas lógicas del HUD.

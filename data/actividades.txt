@@ -26,4 +26,4 @@ comer_cafeteria | Comer en cafeteria   | manana,tarde   | * | 0 |  20 |  0 |  10
 socializar      | Socializar en el patio | manana,tarde | * | 0 |  -5 |  0 |  20 | -20 |  20 |   0 | 2
 
 # --- Salidas ---
-discoteca       | Ir a la discoteca    | noche          | viernes | 1 | -40 | 0 | 30 | -30 |  40 | -50 | 1
+discoteca       | Ir a la discoteca    | noche,madrugada | viernes | 1 | -40 | 0 | 30 | -30 |  40 | -50 | 1

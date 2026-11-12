@@ -35,6 +35,10 @@ Juego::Juego()
 
     ventana_.setFramerateLimit(60);
 
+    // Una pulsación = un evento (evita que mantener una tecla repita el evento
+    // y cierre las cajas de texto sin querer).
+    ventana_.setKeyRepeatEnabled(false);
+
     vista_.setSize(sf::Vector2f(ANCHO_VISTA, ALTO_VISTA));
 
     vista_.setCenter(sf::Vector2f(
@@ -55,6 +59,10 @@ Juego::Juego()
         std::cerr << "[Juego] Hubo problemas al cargar data/actividades.txt.\n";
     }
 
+    if (!partida_.fases.cargarDesdeArchivo("data/fases.txt"))
+    {
+        std::cerr << "[Juego] Hubo problemas al cargar data/fases.txt.\n";
+    }
     pila_.pushState(
         std::make_unique<EstadoExploracion>(&pila_, recursos_, partida_)
     );

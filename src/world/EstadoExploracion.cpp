@@ -1,13 +1,49 @@
 #include "world/EstadoExploracion.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <functional>
 #include <iostream>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "core/CompatSFML.hpp"
 #include "core/StateStack.hpp"
 #include "world/LectorObjetos.hpp"
 #include "world/MenuDestinos.hpp"
+
+namespace
+{
+    // Tamaño de la vista lógica (el mismo que usa Juego).
+    constexpr float ANCHO_VISTA = 640.f;
+    constexpr float ALTO_VISTA  = 360.f;
+
+    // Caja de texto modal.
+    constexpr unsigned TAM_TEXTO_MENSAJE = 14;
+    constexpr float    RELLENO_CAJA      = 20.f;   // espacio entre texto y borde
+
+    // Número redondeado con signo: "+15", "-5", "0".
+    std::string conSigno(float valor)
+    {
+        const long entero = std::lround(valor);
+        return std::string(entero > 0 ? "+" : "") + std::to_string(entero);
+    }
+
+    // Nombres para mostrar (con tilde).
+    const char* nombreVisible(Stat s)
+    {
+        switch (s)
+        {
+        case Stat::SaludMental: return "Salud mental";
+        case Stat::Energia:     return "Energía";
+        case Stat::Estres:      return "Estrés";
+        case Stat::Dopamina:    return "Dopamina";
+        case Stat::Dinero:      return "Dinero";
+        default:                return "?";
+        }
+    }
+}
 
 EstadoExploracion::EstadoExploracion(StateStack* pila,
                                      GestorRecursos& recursos,
@@ -18,12 +54,12 @@ EstadoExploracion::EstadoExploracion(StateStack* pila,
       estadisticas_(partida.estadisticas),
       tiempo_(partida.tiempo),
       personaje_(),
-      textoMensaje_(fuente(), "", 16) // Inicializar texto para SFML 3
+      textoMensaje_(fuente(), "", TAM_TEXTO_MENSAJE)   // en SFML 3 el texto necesita fuente al crearse
 {
     hud_.iniciar(recursos_);
 
-    // Configuración visual de la caja de texto
-    fondoMensaje_.setFillColor(sf::Color(20, 20, 30, 230)); // Azul muy oscuro, semi-transparente
+    // Configuración visual de la caja de texto (opaca para que se lea bien).
+    fondoMensaje_.setFillColor(sf::Color(20, 20, 30, 255));
     fondoMensaje_.setOutlineColor(sf::Color::White);
     fondoMensaje_.setOutlineThickness(2.f);
 
@@ -38,6 +74,7 @@ EstadoExploracion::EstadoExploracion(StateStack* pila,
         std::cerr << "[EstadoExploracion] Hubo problemas al cargar data/objetos.txt.\n";
     }
 
+    // Avisa si algún objeto apunta a una escena que no existe.
     for (const DatosObjeto& d : datosObjetos_)
     {
         if (mapa_.datos(d.escena) == nullptr)
@@ -52,7 +89,9 @@ EstadoExploracion::EstadoExploracion(StateStack* pila,
 
 const sf::Font& EstadoExploracion::fuente() const
 {
+    // Si la fuente no cargó, se usa una vacía para no fallar.
     static const sf::Font vacia;
+
     const sf::Font* f = recursos_.obtenerFuente("principal");
     return (f != nullptr) ? *f : vacia;
 }
@@ -106,6 +145,10 @@ void EstadoExploracion::crearObjetos(const std::string& idEscena)
     }
 }
 
+// ---------------------------------------------------------------
+// Actividades y mensajes
+// ---------------------------------------------------------------
+
 void EstadoExploracion::usarActividad(const std::string& idActividad)
 {
     const ResultadoActividad r = partida_.actividades.ejecutar(
@@ -115,90 +158,164 @@ void EstadoExploracion::usarActividad(const std::string& idActividad)
         partida_.materiaActiva()
     );
 
-    std::string contenidoPantalla;
-
     if (!r.hecha())
     {
-        contenidoPantalla = std::string("[ Aviso ]\n\n") + std::string(GestorActividades::mensaje(r.estado)) + "\n\n(Presiona ENTER)";
         std::cout << "[Actividad] " << GestorActividades::mensaje(r.estado) << '\n';
+
+        mostrarMensaje(
+            std::string("[ Aviso ]\n\n") +
+            GestorActividades::mensaje(r.estado) +
+            "\n\n(Presiona ENTER)"
+        );
+        return;
     }
-    else
+
+    const DatosActividad* actividad = partida_.actividades.buscar(idActividad);
+    const std::string nombre = (actividad != nullptr) ? actividad->nombre : idActividad;
+
+    std::string contenido = "== " + nombre + " ==\n\n";
+
+    for (int i = 0; i < static_cast<int>(Stat::Cantidad); ++i)
     {
-        const DatosActividad* act = partida_.actividades.buscar(idActividad);
-        std::string nombreActividad = act ? act->nombre : idActividad;
-
-        contenidoPantalla = std::string("== ") + nombreActividad + " ==\n\n";
-
-        // Resultados
-        for (int i = 0; i < static_cast<int>(Stat::Cantidad); ++i)
+        if (r.cambios[i] != 0.f)
         {
-            float delta = r.cambios[i];
-            if (delta != 0.f)
-            {
-                std::string signo = (delta > 0) ? "+" : "";
-                contenidoPantalla += std::string(Estadisticas::nombre(static_cast<Stat>(i))) + ": " + signo + std::to_string(static_cast<int>(delta)) + "\n";
-            }
-        }
-
-        if (r.cambioConocimiento != 0.f)
-        {
-            std::string signo = (r.cambioConocimiento > 0) ? "+" : "";
-            contenidoPantalla += std::string("Conocimiento: ") + signo + std::to_string(static_cast<int>(r.cambioConocimiento)) + "\n";
-        }
-
-        contenidoPantalla += "\n(Presiona ENTER)";
-
-        // Log Consola
-        std::cout << "[Actividad] " << idActividad << ':' << std::showpos;
-        for (int i = 0; i < static_cast<int>(Stat::Cantidad); ++i)
-        {
-            if (r.cambios[i] != 0.f)
-                std::cout << ' ' << Estadisticas::nombre(static_cast<Stat>(i)) << ' ' << r.cambios[i];
-        }
-        if (r.cambioConocimiento != 0.f) std::cout << " Conocimiento " << r.cambioConocimiento;
-        std::cout << std::noshowpos << " | "
-                  << Tiempo::nombre(partida_.tiempo.dia()) << ' '
-                  << Tiempo::nombre(partida_.tiempo.bloque())
-                  << " (semana " << partida_.tiempo.semana() << ")\n";
-
-        switch (r.evento)
-        {
-        case EventoTiempo::NuevoDia:
-            std::cout << "[Tiempo] Nuevo dia.\n";
-            break;
-        case EventoTiempo::FinDeSemana:
-            std::cout << "[Tiempo] Fin de semana (animacion pendiente).\n";
-            partida_.tiempo.terminarFinDeSemana();
-            GestorActividades::aplicarMesada(partida_.estadisticas);
-            std::cout << "[Tiempo] Llega la mesada. Empieza la semana " << partida_.tiempo.semana() << ".\n";
-            break;
-        case EventoTiempo::FinSemestre:
-            std::cout << "[Tiempo] Fin del semestre (animacion final pendiente).\n";
-            break;
-        default:
-            break;
+            contenido += std::string(nombreVisible(static_cast<Stat>(i))) + ": " +
+                         conSigno(r.cambios[i]) + "\n";
         }
     }
 
-    // Configurar y centrar el cuadro de texto
-    textoMensaje_.setString(contenidoPantalla);
-    sf::FloatRect bounds = textoMensaje_.getLocalBounds();
-    
-    // Darle margen al fondo
-    fondoMensaje_.setSize(sf::Vector2f(bounds.size.x + 40.f, bounds.size.y + 40.f));    
-    // Posicionarlo justo arriba del personaje
-    sf::Vector2f centro = personaje_.posicion();
-    
-    // Corrección para SFML 3: Envolver en sf::Vector2f()
-    fondoMensaje_.setOrigin(sf::Vector2f(fondoMensaje_.getSize().x / 2.f, fondoMensaje_.getSize().y / 2.f));
-    fondoMensaje_.setPosition(sf::Vector2f(centro.x, centro.y - 80.f)); 
-    
-    // Corrección para SFML 3: Envolver en sf::Vector2f()
-    textoMensaje_.setOrigin(sf::Vector2f(bounds.position.x + bounds.size.x / 2.f, bounds.position.y + bounds.size.y / 2.f));    textoMensaje_.setPosition(fondoMensaje_.getPosition());
+    if (r.cambioConocimiento != 0.f)
+        contenido += "Conocimiento: " + conSigno(r.cambioConocimiento) + "\n";
 
-    // Activar la pausa y mostrar el mensaje
+    // La discoteca todavía no tiene escena: por ahora es solo este cuadro.
+    if (idActividad == "discoteca")
+        contenido += "\n[ Aquí irá la animación de la discoteca ]\n";
+
+    contenido += "\n(Presiona ENTER)";
+
+    // Registro en consola (útil para depurar).
+    std::cout << "[Actividad] " << idActividad << ':' << std::showpos;
+    for (int i = 0; i < static_cast<int>(Stat::Cantidad); ++i)
+    {
+        if (r.cambios[i] != 0.f)
+            std::cout << ' ' << Estadisticas::nombre(static_cast<Stat>(i))
+                      << ' ' << r.cambios[i];
+    }
+    if (r.cambioConocimiento != 0.f)
+        std::cout << " Conocimiento " << r.cambioConocimiento;
+    std::cout << std::noshowpos << " | "
+              << Tiempo::nombre(partida_.tiempo.dia()) << ' '
+              << Tiempo::nombre(partida_.tiempo.bloque())
+              << " (semana " << partida_.tiempo.semana() << ")\n";
+
+    if (r.evento == EventoTiempo::NuevoDia)
+        std::cout << "[Tiempo] Nuevo dia.\n";
+
+    mostrarMensaje(contenido);
+}
+
+void EstadoExploracion::mostrarMensaje(const std::string& texto)
+{
+    textoMensaje_.setString(textoUtf8(texto));
+
+    const sf::FloatRect limites = textoMensaje_.getLocalBounds();
+    const sf::Vector2f posTexto = posicionRect(limites);
+    const sf::Vector2f tamTexto = tamanoRect(limites);
+
+    const sf::Vector2f tamCaja(
+        tamTexto.x + 2.f * RELLENO_CAJA,
+        tamTexto.y + 2.f * RELLENO_CAJA
+    );
+
+    // Siempre en el centro de la pantalla.
+    const sf::Vector2f centro(ANCHO_VISTA / 2.f, ALTO_VISTA / 2.f);
+
+    fondoMensaje_.setSize(tamCaja);
+    fondoMensaje_.setOrigin(sf::Vector2f(tamCaja.x / 2.f, tamCaja.y / 2.f));
+    fondoMensaje_.setPosition(centro);
+
+    textoMensaje_.setOrigin(sf::Vector2f(
+        posTexto.x + tamTexto.x / 2.f,
+        posTexto.y + tamTexto.y / 2.f
+    ));
+    textoMensaje_.setPosition(centro);
+
     mostrandoMensaje_ = true;
 }
+
+void EstadoExploracion::revisarEventosTiempo()
+{
+    // Si hay una caja abierta se espera a que el jugador la cierre.
+    if (mostrandoMensaje_)
+        return;
+
+    if (tiempo_.enFinDeSemana())
+    {
+        // Provisional: aquí irá la animación del fin de semana
+        // (con su resultado aleatorio). Por ahora solo un cuadro de texto.
+        const int semanaQueTermina = tiempo_.semana();
+
+        tiempo_.terminarFinDeSemana();
+        const float mesada = GestorActividades::aplicarMesada(estadisticas_);
+
+        std::cout << "[Tiempo] Fin de semana: empieza la semana "
+                  << tiempo_.semana() << ".\n";
+
+        mostrarMensaje(
+            "== Fin de semana ==\n\n"
+            "Terminó la semana " + std::to_string(semanaQueTermina) + ".\n"
+            "Tus padres te envían la mesada: " + conSigno(mesada) + "\n\n"
+            "Empieza la semana " + std::to_string(tiempo_.semana()) + ".\n\n"
+            "(Presiona ENTER)"
+        );
+        return;
+    }
+
+    if (tiempo_.semestreTerminado() && !finSemestreMostrado_)
+    {
+        finSemestreMostrado_ = true;
+
+        std::cout << "[Tiempo] Fin del semestre.\n";
+
+        // Provisional: aquí irán la animación final y el resumen con los finales.
+        mostrarMensaje(
+            "== Fin del semestre ==\n\n"
+            "Terminaste las " + std::to_string(Tiempo::SEMANAS) + " semanas.\n"
+            "(Aquí irán la animación final\n"
+            "y el resumen de finales.)\n\n"
+            "(Presiona ENTER)"
+        );
+        return;
+    }
+
+    // Si la escena actual cerró por la hora (p. ej. la universidad de noche),
+    // el jugador vuelve al apartamento.
+    if (escena_ && escena_->id() != mapa_.raiz())
+    {
+        const std::string idActual = escena_->id();
+
+        if (!partida_.fases.permitidaEn(idActual, tiempo_.bloque(), tiempo_.dia()))
+        {
+            const DatosEscena* datos = mapa_.datos(idActual);
+            const std::string nombre = (datos != nullptr) ? datos->nombre : idActual;
+
+            cambiarEscena(mapa_.raiz());
+
+            std::cout << "[Tiempo] " << nombre << " cerro: vuelves al apartamento.\n";
+
+            mostrarMensaje(
+                "== Cerrado ==\n\n" +
+                nombre + " cerró por hoy.\n"
+                "Vuelves al apartamento.\n\n"
+                "(Presiona ENTER)"
+            );
+        }
+    }
+}
+
+// ---------------------------------------------------------------
+// Menú de destinos
+// ---------------------------------------------------------------
 
 void EstadoExploracion::abrirMenuDestinos()
 {
@@ -206,6 +323,27 @@ void EstadoExploracion::abrirMenuDestinos()
         return;
 
     const std::string idActual = escena_->id();
+
+    // Horarios: lo que está cerrado ahora aparece bloqueado, y la discoteca
+    // solo aparece cuando abre (viernes de noche o de madrugada).
+    std::vector<Destino> visibles;
+
+    for (Destino d : mapa_.destinos(idActual, partida_.faseSemestre()))
+    {
+        const bool abierto = partida_.fases.escenaPermitida(d.id);
+
+        if (d.esAnimacion)
+        {
+            if (!abierto)
+                continue;
+        }
+        else if (!d.esPadre && !abierto)
+        {
+            d.bloqueado = true;
+        }
+
+        visibles.push_back(d);
+    }
 
     auto alElegir = [this, idActual](const std::string& idDestino)
     {
@@ -216,8 +354,9 @@ void EstadoExploracion::abrirMenuDestinos()
             break;
 
         case ResultadoCambio::Animacion:
-            std::cout << "[EstadoExploracion] Discoteca: "
-                      << "animacion pendiente.\n";
+            // El id de la escena de animación coincide con el de su actividad
+            // (p. ej. "discoteca"): se hace como cualquier otra actividad.
+            usarActividad(idDestino);
             break;
 
         case ResultadoCambio::Bloqueada:
@@ -229,22 +368,29 @@ void EstadoExploracion::abrirMenuDestinos()
     m_stack->pushState(std::make_unique<MenuDestinos>(
         m_stack,
         fuente(),
-        mapa_.destinos(idActual, partida_.faseSemestre()),
+        std::move(visibles),
         alElegir
     ));
 }
 
+// ---------------------------------------------------------------
+// Eventos, actualización y dibujo
+// ---------------------------------------------------------------
+
 void EstadoExploracion::handleEvent(const sf::Event& event)
 {
-    // Si hay un mensaje bloqueando la pantalla, solo escuchamos la tecla ENTER o E para cerrarlo
+    // Con una caja abierta solo se escucha ENTER o E para cerrarla.
     if (mostrandoMensaje_)
     {
         const auto* tecla = event.getIf<sf::Event::KeyPressed>();
-        if (tecla != nullptr && (tecla->code == sf::Keyboard::Key::Enter || tecla->code == sf::Keyboard::Key::E))
+
+        if (tecla != nullptr &&
+            (tecla->code == sf::Keyboard::Key::Enter ||
+             tecla->code == sf::Keyboard::Key::E))
         {
-            mostrandoMensaje_ = false; // Cerramos el mensaje
+            mostrandoMensaje_ = false;
         }
-        return; // No procesamos ni clics ni otros movimientos
+        return;
     }
 
     // Clic izquierdo: puede ser sobre el botón del HUD.
@@ -294,25 +440,37 @@ void EstadoExploracion::update(float dt)
 {
     hud_.actualizar(dt, estadisticas_, tiempo_);
 
-    // Si el cuadro de texto está abierto, el personaje se congela
+    // Fin de semana, fin de semestre y escenas que cierran (los provoque una
+    // actividad o una tecla de depuración).
+    revisarEventosTiempo();
+
+    // Con la caja abierta el personaje se congela.
     if (mostrandoMensaje_ || !escena_)
         return;
 
     using Tecla = sf::Keyboard::Key;
     sf::Vector2f direccion(0.f, 0.f);
 
-    if (sf::Keyboard::isKeyPressed(Tecla::A) || sf::Keyboard::isKeyPressed(Tecla::Left))
+    if (sf::Keyboard::isKeyPressed(Tecla::A) ||
+        sf::Keyboard::isKeyPressed(Tecla::Left))
         direccion.x -= 1.f;
-    if (sf::Keyboard::isKeyPressed(Tecla::D) || sf::Keyboard::isKeyPressed(Tecla::Right))
+
+    if (sf::Keyboard::isKeyPressed(Tecla::D) ||
+        sf::Keyboard::isKeyPressed(Tecla::Right))
         direccion.x += 1.f;
-    if (sf::Keyboard::isKeyPressed(Tecla::W) || sf::Keyboard::isKeyPressed(Tecla::Up))
+
+    if (sf::Keyboard::isKeyPressed(Tecla::W) ||
+        sf::Keyboard::isKeyPressed(Tecla::Up))
         direccion.y -= 1.f;
-    if (sf::Keyboard::isKeyPressed(Tecla::S) || sf::Keyboard::isKeyPressed(Tecla::Down))
+
+    if (sf::Keyboard::isKeyPressed(Tecla::S) ||
+        sf::Keyboard::isKeyPressed(Tecla::Down))
         direccion.y += 1.f;
 
     personaje_.actualizar(dt, direccion, escena_->obstaculos());
     personaje_.limitarA(escena_->limites());
 
+    // Actualiza si se muestra el aviso "[E]".
     if (Puerta* puerta = escena_->puerta())
         puerta->puedeInteractuar(personaje_.hitbox());
 
@@ -334,14 +492,19 @@ void EstadoExploracion::draw(sf::RenderWindow& window)
 
     personaje_.dibujar(window);
 
-    // Dibujamos la caja de texto por encima de la escena si está activa
+    hud_.dibujar(window);
+
+    // La caja de texto va por encima de todo (también del HUD), con un velo
+    // oscuro detrás para que se lea bien.
     if (mostrandoMensaje_)
     {
+        sf::RectangleShape velo(sf::Vector2f(ANCHO_VISTA, ALTO_VISTA));
+        velo.setFillColor(sf::Color(0, 0, 0, 150));
+        window.draw(velo);
+
         window.draw(fondoMensaje_);
         window.draw(textoMensaje_);
     }
-
-    hud_.dibujar(window);   // HUD siempre de último
 }
 
 // TEMPORAL (S1-7): teclas de depuración. Borrar antes del Pull Request.
