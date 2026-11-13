@@ -9,6 +9,8 @@
 // Clase principal del juego: crea la ventana y ejecuta el bucle principal.
 // Orden del bucle en cada cuadro: procesarEventos -> actualizar(dt) -> dibujar.
 
+enum class ModoEscala { Fraccionario, Entero };
+
 class Juego
 {
 public:
@@ -21,9 +23,15 @@ private:
     void procesarEventos();
     void actualizar(float dt);
     void dibujar();
+    void crearVentana();
+    void ajustarVista();
+
+
 
     // La ventana se declara primero para que se destruya al final.
     sf::RenderWindow ventana_;
+    bool pantallaCompleta_ = true;
+    ModoEscala modoEscala_ = ModoEscala::Fraccionario;
     GestorRecursos recursos_;
     sf::View vista_;
     sf::Clock reloj_;
