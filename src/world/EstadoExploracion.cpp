@@ -662,8 +662,9 @@ void EstadoExploracion::handleEvent(const sf::Event& event)
     {
         if (raton->button == sf::Mouse::Button::Left && ventana_ != nullptr)
         {
-            hud_.ratonPresionado(
-                ventana_->mapPixelToCoords(raton->position, hud_.vista()));
+                    sf::View vistaHud = hud_.vista();
+            vistaHud.setViewport(ventana_->getView().getViewport());
+            hud_.ratonPresionado(ventana_->mapPixelToCoords(raton->position, vistaHud));
         }
         return;
     }

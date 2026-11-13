@@ -3,8 +3,11 @@
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <algorithm>  
+#include <cmath>
 
 #include "world/EstadoExploracion.hpp"
+#include "core/CompatSFML.hpp"
 
 namespace
 {
@@ -21,32 +24,11 @@ namespace
 
 Juego::Juego()
 {
-#if SFML_VERSION_MAJOR >= 3
-    ventana_.create(
-        sf::VideoMode({ANCHO_VENTANA, ALTO_VENTANA}),
-        "Sobreviviendo al Semestre"
-    );
-#else
-    ventana_.create(
-        sf::VideoMode(ANCHO_VENTANA, ALTO_VENTANA),
-        "Sobreviviendo al Semestre"
-    );
-#endif
-
-    ventana_.setFramerateLimit(60);
-
-    // Una pulsación = un evento (evita que mantener una tecla repita el evento
-    // y cierre las cajas de texto sin querer).
-    ventana_.setKeyRepeatEnabled(false);
 
     vista_.setSize(sf::Vector2f(ANCHO_VISTA, ALTO_VISTA));
+    vista_.setCenter(sf::Vector2f(ANCHO_VISTA / 2.f, ALTO_VISTA / 2.f));
 
-    vista_.setCenter(sf::Vector2f(
-        ANCHO_VISTA / 2.f,
-        ALTO_VISTA / 2.f
-    ));
-
-    ventana_.setView(vista_);
+    crearVentana();
 
     if (!recursos_.cargarFuente("principal",
                                 "assets/fuentes/principal.ttf"))
@@ -92,9 +74,36 @@ void Juego::procesarEventos()
     while (const std::optional evento = ventana_.pollEvent())
     {
         if (evento->is<sf::Event::Closed>())
+        {
             ventana_.close();
-        else
-            pila_.handleEvent(*evento);
+            continue;
+        }
+
+        if (evento->is<sf::Event::Resized>())
+        {
+            ajustarVista();
+            continue;
+        }
+
+        if (const auto* tecla = evento->getIf<sf::Event::KeyPressed>())
+        {
+            if (tecla->code == sf::Keyboard::Key::F11)
+            {
+                pantallaCompleta_ = !pantallaCompleta_;
+                crearVentana();
+                continue;
+            }
+            if (tecla->code == sf::Keyboard::Key::F10)
+            {
+                modoEscala_ = (modoEscala_ == ModoEscala::Entero)
+                                  ? ModoEscala::Fraccionario
+                                  : ModoEscala::Entero;
+                ajustarVista();
+                continue;
+            }
+        }
+
+        pila_.handleEvent(*evento);
     }
 
 #else
@@ -119,9 +128,56 @@ void Juego::actualizar(float dt)
 
 void Juego::dibujar()
 {
-    ventana_.clear(sf::Color(30, 30, 40));
+    ventana_.clear(sf::Color::Black);
 
     pila_.draw(ventana_);
 
     ventana_.display();
+}
+
+void Juego::crearVentana()
+{
+    if (pantallaCompleta_)
+    {
+        ventana_.create(sf::VideoMode::getDesktopMode(),
+                        "Sobreviviendo al Semestre",
+                        sf::State::Fullscreen);
+    }
+    else
+    {
+        ventana_.create(sf::VideoMode({ANCHO_VENTANA, ALTO_VENTANA}),
+                        "Sobreviviendo al Semestre",
+                        sf::Style::Default,
+                        sf::State::Windowed);
+    }
+
+    // create() reinicia estos ajustes, por eso se repiten aquí.
+    ventana_.setFramerateLimit(60);
+    ventana_.setKeyRepeatEnabled(false);
+
+    ajustarVista();
+}
+
+void Juego::ajustarVista()
+{
+    const sf::Vector2u t = ventana_.getSize();
+    if (t.x == 0 || t.y == 0)
+        return;
+
+    const float tx = static_cast<float>(t.x);
+    const float ty = static_cast<float>(t.y);
+
+    float escala = std::min(tx / ANCHO_VISTA, ty / ALTO_VISTA);
+
+    if (modoEscala_ == ModoEscala::Entero && escala >= 1.f)
+        escala = std::floor(escala);
+
+    // Tamaño y posición en píxeles enteros para que el borde quede nítido.
+    const float anchoPx = std::round(ANCHO_VISTA * escala);
+    const float altoPx  = std::round(ALTO_VISTA * escala);
+    const float x = std::floor((tx - anchoPx) / 2.f);
+    const float y = std::floor((ty - altoPx) / 2.f);
+
+    vista_.setViewport(crearRect(x / tx, y / ty, anchoPx / tx, altoPx / ty));
+    ventana_.setView(vista_);
 }

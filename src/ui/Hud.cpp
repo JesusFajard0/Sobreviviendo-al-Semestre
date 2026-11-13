@@ -224,9 +224,10 @@ void Hud::actualizarTextoDinero(const Estadisticas& stats)
 
 void Hud::dibujar(sf::RenderTarget& destino) const
 {
-    // El HUD no se mueve con la cámara: vista fija propia.
     const sf::View anterior = destino.getView();
-    destino.setView(vista_);
+    sf::View vistaHud = vista_;
+    vistaHud.setViewport(anterior.getViewport());   // mismo letterbox que el juego
+    destino.setView(vistaHud);
 
     destino.draw(boton_);
     if (textoBoton_)
