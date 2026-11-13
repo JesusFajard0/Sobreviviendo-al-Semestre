@@ -1,5 +1,5 @@
 #include "world/Escena.hpp"
-
+#include <iostream>
 #include "core/CompatSFML.hpp"
 
 namespace
@@ -38,15 +38,43 @@ Escena::Escena(const DatosEscena& datos,
     }
 }
 
-void Escena::dibujar(sf::RenderWindow& ventana, const sf::Font& fuente) const
+void Escena::ponerFondo(const sf::Texture& textura)
+{
+    const sf::Vector2u tamano = textura.getSize();
+
+    if (tamano.x != static_cast<unsigned>(ANCHO_VISTA) ||
+        tamano.y != static_cast<unsigned>(ALTO_VISTA))
+    {
+        std::cerr << "[Escena] El fondo de '" << id_ << "' mide "
+                  << tamano.x << "x" << tamano.y
+                  << " y se estirará a 640x360.\n";
+    }
+
+    fondo_.setTexture(&textura, true);
+    fondo_.setFillColor(sf::Color::White);
+    tieneFondo_ = true;
+}
+
+void Escena::dibujar(sf::RenderWindow& ventana, const sf::Font& fuente, bool verColisiones) const
 {
     ventana.draw(fondo_);
 
-    for (const sf::RectangleShape& obstaculo : obstaculos_)
-        ventana.draw(obstaculo);
+    // Con arte, los rectángulos de prueba solo se ven en modo depuración.
+    const bool verFormas = !tieneFondo_ || verColisiones;
+
+    if (verFormas)
+    {
+        for (const sf::RectangleShape& obstaculo : obstaculos_)
+            ventana.draw(obstaculo);
+    }
 
     if (puerta_)
-        puerta_->dibujar(ventana, fuente);
+    {
+        if (verFormas)
+            puerta_->dibujar(ventana, fuente);                // forma + [E]
+        else
+            puerta_->Interactuable::dibujar(ventana, fuente); // solo [E]
+    }
 }
 
 sf::FloatRect Escena::limites() const

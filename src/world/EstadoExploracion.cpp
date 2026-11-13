@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <functional>
 #include <iostream>
 #include <string>
@@ -108,16 +109,27 @@ void EstadoExploracion::cambiarEscena(const std::string& id)
         return;
     }
 
-    escena_ = std::make_unique<Escena>(
-        *datos,
-        mapa_.rectangulos(id),
-        [this]() { abrirMenuDestinos(); }
+    escena_ = std::make_unique<Escena>(*datos, mapa_.rectangulos(id), [this]() { abrirMenuDestinos(); }
     );
+
+    // Arte de fondo (opcional): assets/backgrounds/<id>.png
+    const std::string nombreFondo = (datos->fondo.empty() || datos->fondo == "-") ? id : datos->fondo;
+    const std::string claveFondo = "fondo_" + nombreFondo;
+    const std::string rutaFondo = "assets/backgrounds/" + nombreFondo + ".png";
+
+    if (recursos_.obtenerTextura(claveFondo) == nullptr && std::filesystem::exists(rutaFondo))
+    {
+        recursos_.cargarTextura(claveFondo, rutaFondo);
+    }
+
+    if (const sf::Texture* fondo = recursos_.obtenerTextura(claveFondo))
+        escena_->ponerFondo(*fondo);
 
     personaje_.colocar(escena_->spawn());
 
     crearObjetos(id);
 }
+
 void EstadoExploracion::crearObjetos(const std::string& idEscena)
 {
     objetos_.clear();
@@ -678,6 +690,12 @@ void EstadoExploracion::handleEvent(const sf::Event& event)
 
     teclaDepuracion(tecla->code, tecla->shift);   // TEMPORAL (S1-7)
 
+    if (tecla->code == sf::Keyboard::Key::F3)
+    {
+        verColisiones_ = !verColisiones_;
+        return;
+    }
+
     if (tecla->code != sf::Keyboard::Key::E || !escena_)
         return;
 
@@ -752,7 +770,7 @@ void EstadoExploracion::draw(sf::RenderWindow& window)
     if (!escena_)
         return;
 
-    escena_->dibujar(window, fuente());
+    escena_->dibujar(window, fuente(), verColisiones_);
 
     for (const std::unique_ptr<ObjetoActividad>& objeto : objetos_)
         objeto->dibujar(window, fuente());

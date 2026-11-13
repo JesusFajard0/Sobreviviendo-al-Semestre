@@ -65,6 +65,9 @@ private:
 
     Hud hud_;
 
+    // F3: muestra colisiones y puerta encima del arte.
+    bool verColisiones_ = false;
+
     // S2-3 / S2-4
     Asistencia asistencia_;
     Colapso    colapso_;
