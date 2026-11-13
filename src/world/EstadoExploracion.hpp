@@ -11,6 +11,8 @@
 #include "core/State.hpp"
 #include "systems/Estadisticas.hpp"
 #include "systems/Tiempo.hpp"
+#include "systems/Asistencia.hpp"
+#include "systems/Colapso.hpp"
 #include "ui/Hud.hpp"
 #include "world/DatosObjeto.hpp"
 #include "world/Escena.hpp"
@@ -42,6 +44,9 @@ private:
     // si los provocó una actividad o una tecla de depuración.
     void revisarEventosTiempo();
 
+    // S2-4: si alguna estadistica llego al extremo, hay colapso (pierde un bloque).
+    void revisarColapso();
+
     const sf::Font& fuente() const;
 
     // TEMPORAL (S1-7): borrar antes del Pull Request.
@@ -59,6 +64,10 @@ private:
     Personaje personaje_;
 
     Hud hud_;
+
+    // S2-3 / S2-4
+    Asistencia asistencia_;
+    Colapso    colapso_;
 
     // --- Caja de texto modal ---
     bool mostrandoMensaje_ = false;
