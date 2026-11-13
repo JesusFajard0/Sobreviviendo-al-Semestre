@@ -32,12 +32,18 @@ public:
     // Devuelve la puerta de salida, o nullptr si la escena no tiene.
     Puerta* puerta() { return puerta_.get(); }
 
-    void dibujar(sf::RenderWindow& ventana, const sf::Font& fuente) const;
+    // Pone la imagen de fondo (assets/backgrounds/<id>.png).
+    void ponerFondo(const sf::Texture& textura);
+
+    // Con verColisiones = true se dibujan encima del arte las colisiones y la puerta.
+    void dibujar(sf::RenderWindow& ventana, const sf::Font& fuente,
+                 bool verColisiones = false) const;
 
 private:
     std::string id_;
     sf::Vector2f spawn_;
     sf::RectangleShape fondo_;
+    bool tieneFondo_ = false;
     std::vector<sf::RectangleShape> obstaculos_;
     std::unique_ptr<Puerta> puerta_;
 };
