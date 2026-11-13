@@ -11,6 +11,7 @@
 #include "core/CompatSFML.hpp"
 #include "core/StateStack.hpp"
 #include "world/LectorObjetos.hpp"
+#include "world/ClaseState.hpp"
 #include "world/MenuDestinos.hpp"
 
 namespace
@@ -291,6 +292,27 @@ void EstadoExploracion::usarActividad(const std::string& idActividad)
     if (r.cambioConocimiento != 0.f)
         contenido += "Conocimiento: " + conSigno(r.cambioConocimiento) + "\n";
 
+    // --- S2-3: contador de asistencias ---
+    const bool fueAClase = (idActividad == "asistir_clase");
+    if (fueAClase)
+    {
+        const Materia materia = partida_.materiaActiva();
+        asistencia_.registrarAsistencia(materia);
+        contenido += "Asistencias en la materia: " +
+                     std::to_string(asistencia_.asistencias(materia)) + "\n";
+    }
+
+    // --- S2-4: noches sin dormir ---
+    if (idActividad == "dormir")   // ADAPTAR: id real de la actividad de dormir
+        colapso_.marcarSueno();
+
+    if (r.evento == EventoTiempo::NuevoDia || r.evento == EventoTiempo::FinDeSemana)
+    {
+        const ResultadoAmanecer noche = colapso_.alAmanecer(estadisticas_);
+        if (!noche.durmio)
+            contenido += std::string("\n") + noche.mensaje + "\n";
+    }
+
     // La discoteca todavía no tiene escena: por ahora es solo este cuadro.
     if (idActividad == "discoteca")
         contenido += "\n[ Aquí irá la animación de la discoteca ]\n";
@@ -316,6 +338,12 @@ void EstadoExploracion::usarActividad(const std::string& idActividad)
         std::cout << "[Tiempo] Nuevo dia.\n";
 
     mostrarMensaje(contenido);
+
+    // S2-3: animacion provisional de clase. Se apila encima y, al terminar,
+    // se ve la caja con los resultados.
+    if (fueAClase)
+        m_stack->pushState(std::make_unique<ClaseState>(
+            m_stack, fuente(), Estadisticas::nombre(partida_.materiaActiva())));
 }
 void EstadoExploracion::mostrarMensaje(const std::string& texto)
 {
@@ -463,10 +491,15 @@ void EstadoExploracion::revisarEventosTiempo()
 
         if (partida_.actividades.usosHoy("asistir_clase") == 0 && !examenMat.has_value())
         {
+            const Materia materiaFalta = partida_.materiaActiva();
+            asistencia_.registrarFalta(materiaFalta);   // S2-3
+
             mostrarMensaje(
-                "== AVISO ==\n\n"
+                std::string("== AVISO ==\n\n"
                 "Pasó la mañana y no fuiste a la universidad.\n"
-                "¡Faltaste a clase!\n\n"
+                "¡Faltaste a clase!\n") +
+                "Faltas en la materia: " +
+                std::to_string(asistencia_.faltas(materiaFalta)) + "\n\n"
                 "(Presiona ENTER)"
             );
             return;
@@ -674,6 +707,9 @@ void EstadoExploracion::update(float dt)
     // actividad o una tecla de depuración).
     revisarEventosTiempo();
 
+    // S2-4: colapso por estadisticas extremas (espera a que se cierre la caja).
+    revisarColapso();
+
     // Con la caja abierta el personaje se congela.
     if (mostrandoMensaje_ || !escena_)
         return;
@@ -774,4 +810,41 @@ void EstadoExploracion::teclaDepuracion(sf::Keyboard::Key tecla, bool fino)
 
     default: break;
     }
+}
+
+// ---------------------------------------------------------------
+// S2-4: colapso
+// ---------------------------------------------------------------
+void EstadoExploracion::revisarColapso()
+{
+    // No se pisa una caja que el jugador todavia no cerro.
+    if (mostrandoMensaje_)
+        return;
+
+    const ResultadoColapso r = colapso_.evaluar(estadisticas_);
+    if (!r.huboColapso)
+        return;
+
+    std::string texto = std::string("== COLAPSO ==\n\n") + r.mensaje + ".\n";
+
+    // Pierde tiempo igual que la tecla T: al cambiar de dia se reinician los contadores.
+    for (int i = 0; i < r.bloquesPerdidos; ++i)
+    {
+        const EventoTiempo ev = tiempo_.avanzarBloque();
+
+        if (ev == EventoTiempo::NuevoDia || ev == EventoTiempo::NuevaSemana)
+            partida_.actividades.reiniciarContadores();
+
+        if (ev == EventoTiempo::NuevoDia || ev == EventoTiempo::FinDeSemana)
+        {
+            const ResultadoAmanecer noche = colapso_.alAmanecer(estadisticas_);
+            if (!noche.durmio)
+                texto += std::string("\n") + noche.mensaje + "\n";
+        }
+    }
+
+    texto += "\nPierdes un bloque de tiempo.\n\n(Presiona ENTER)";
+
+    std::cout << "[Colapso] " << r.mensaje << '\n';
+    mostrarMensaje(texto);
 }
