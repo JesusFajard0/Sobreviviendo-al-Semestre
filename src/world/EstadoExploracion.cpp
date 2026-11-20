@@ -17,6 +17,8 @@
 #include "dialogue/DialogoState.hpp"
 #include "world/ClaseState.hpp"
 #include "world/MenuDestinos.hpp"
+#include "minigames/MinijuegoPrueba.hpp"
+#include "minigames/SeleccionEstudio.hpp"
 
 
 namespace
@@ -90,6 +92,57 @@ EstadoExploracion::EstadoExploracion(StateStack* pila,
       textoMensaje_(fuente(), "", TAM_TEXTO_MENSAJE)   // en SFML 3 el texto necesita fuente al crearse
 {
     hud_.iniciar(recursos_);
+
+    // S2-8: registro temporal de minijuegos.
+    // Mas adelante cada ID tendra su implementacion real.
+    const std::vector<std::string> juegosEstudio = {
+        "estudio_calculo",
+        "estudio_fisica",
+        "estudio_programacion",
+        "estudio_generico_1",
+        "estudio_generico_2"
+    };
+
+    const std::vector<std::string> juegosPC = {
+        "pc_prueba_1",
+        "pc_prueba_2",
+        "pc_prueba_3"
+    };
+
+    auto registrarGrupo =
+        [this](const std::vector<std::string>& ids,
+               const std::string& categoria)
+    {
+        for (const std::string& id : ids)
+        {
+            const bool registrado =
+                registroMinijuegos_.registrar(
+                    id,
+                    categoria,
+                    [this, id](
+                        StateStack* pila,
+                        Minijuego::AlTerminar alTerminar)
+                    {
+                        return std::make_unique<MinijuegoPrueba>(
+                            pila,
+                            fuente(),
+                            id,
+                            std::move(alTerminar)
+                        );
+                    }
+                );
+
+            if (!registrado)
+            {
+                std::cerr
+                    << "[Minijuegos] No se pudo registrar: "
+                    << id << '\n';
+            }
+        }
+    };
+
+    registrarGrupo(juegosEstudio, "estudio");
+    registrarGrupo(juegosPC, "computadora");
 
     // Configuración visual de la caja de texto (opaca para que se lea bien).
     fondoMensaje_.setFillColor(sf::Color(20, 20, 30, 255));
@@ -274,6 +327,136 @@ void EstadoExploracion::crearObjetos(const std::string& idEscena)
 // ---------------------------------------------------------------
 void EstadoExploracion::usarActividad(const std::string& idActividad)
 {
+    // --------------------------------------------------------
+    // S2-8: apertura de minijuegos desde las actividades.
+    // --------------------------------------------------------
+
+    const bool esComputadora =
+        (idActividad == "computadora");
+
+    const bool esEstudio =
+        (idActividad == "estudiar_casa" ||
+         idActividad == "estudiar_biblio");
+
+    if (!aplicandoResultadoMinijuego_ &&
+        (esComputadora || esEstudio))
+    {
+        // Comprobar primero si la actividad esta disponible.
+        // Esta consulta no consume tiempo ni estadisticas.
+        const EstadoActividad disponibilidad =
+            partida_.actividades.puedeHacer(
+                idActividad,
+                partida_.estadisticas,
+                partida_.tiempo
+            );
+
+        if (disponibilidad == EstadoActividad::Disponible)
+        {
+            std::string idMinijuego;
+
+            if (esComputadora)
+            {
+                // Sorteo entre los juegos registrados para PC.
+                const auto candidatos =
+                    registroMinijuegos_.idsDeCategoria(
+                        "computadora"
+                    );
+
+                idMinijuego = sorteadorMinijuegos_.sortear(
+                    "computadora",
+                    candidatos
+                );
+            }
+            else
+            {
+                // Sorteo entre el minijuego de la materia
+                // activa y los dos genericos de estudio.
+                idMinijuego = sortearMinijuegoEstudio(
+                    sorteadorMinijuegos_,
+                    partida_.materiaActiva()
+                );
+            }
+
+            if (idMinijuego.empty())
+            {
+                mostrarMensaje(
+                    "No hay minijuegos disponibles.\n\n"
+                    "(Presiona ENTER)"
+                );
+                return;
+            }
+
+            // Crear el minijuego usando su identificador.
+            auto minijuego = registroMinijuegos_.crear(
+                idMinijuego,
+                m_stack,
+
+                [this, idActividad](
+                    const ResultadoMinijuego& resultado)
+                {
+                    std::cout
+                        << "[Minijuego] "
+                        << resultado.id
+                        << " | Puntuacion: "
+                        << resultado.puntuacion
+                        << '\n';
+
+                    // Cancelar no consume la actividad.
+                    if (resultado.estado ==
+                        EstadoMinijuego::Cancelado)
+                    {
+                        return;
+                    }
+
+                    // Por ahora, una derrota tampoco consume
+                    // la actividad. Lo definiremos despues.
+                    if (resultado.estado ==
+                        EstadoMinijuego::Fallido)
+                    {
+                        mostrarMensaje(
+                            "Minijuego no completado.\n\n"
+                            "(Presiona ENTER)"
+                        );
+                        return;
+                    }
+
+                    // Completar aplica los efectos normales
+                    // de la actividad correspondiente.
+                    aplicandoResultadoMinijuego_ = true;
+
+                    usarActividad(idActividad);
+
+                    aplicandoResultadoMinijuego_ = false;
+                }
+            );
+
+            if (!minijuego)
+            {
+                mostrarMensaje(
+                    "No se pudo crear el minijuego.\n\n"
+                    "(Presiona ENTER)"
+                );
+                return;
+            }
+
+            std::cout
+                << "[Minijuego] Iniciando: "
+                << idMinijuego << '\n';
+
+            m_stack->pushState(std::move(minijuego));
+
+            return;
+        }
+
+        // Si la actividad no esta disponible,
+        // dejamos continuar al sistema original.
+        // Asi conserva sus mensajes de error.
+    }
+
+    // --------------------------------------------------------
+    // Fin de la integracion S2-8.
+    // --------------------------------------------------------
+
     // --- LECTURA DEL MANUAL DEL ESTUDIANTE (Inicia la Pág. 1, continúa en handleEvent) ---
     if (idActividad == "leer_manual")
     {

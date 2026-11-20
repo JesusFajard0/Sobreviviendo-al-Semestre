@@ -24,6 +24,8 @@
 #include "world/Personaje.hpp"
 #include "world/DatosMueble.hpp"
 #include "world/Mueble.hpp"
+#include "minigames/RegistroMinijuegos.hpp"
+#include "minigames/SorteadorMinijuegos.hpp"
 
 // Estado donde el jugador camina por las escenas.
 class EstadoExploracion : public State
@@ -73,6 +75,14 @@ private:
 
     GestorRecursos& recursos_;
     Partida&        partida_;
+    
+    // S2-8: sistema general de minijuegos.
+    RegistroMinijuegos registroMinijuegos_;
+    SorteadorMinijuegos sorteadorMinijuegos_;
+
+    // Evita abrir otro minijuego cuando estamos
+    // aplicando el resultado del que acaba de terminar.
+    bool aplicandoResultadoMinijuego_ = false;
 
     // Atajos a partida_.estadisticas y partida_.tiempo (el HUD los usa así).
     Estadisticas&   estadisticas_;
