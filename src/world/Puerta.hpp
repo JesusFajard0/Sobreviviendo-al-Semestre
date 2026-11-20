@@ -15,6 +15,8 @@ public:
 
     void interactuar() override;
 
+    void ponerArea(const sf::FloatRect& nueva) override;
+
     void dibujar(sf::RenderWindow& ventana,
                  const sf::Font& fuente) const override;
 

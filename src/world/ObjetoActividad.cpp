@@ -40,6 +40,13 @@ void ObjetoActividad::interactuar()
         alUsar_(idActividad_);
 }
 
+void ObjetoActividad::ponerArea(const sf::FloatRect& nueva)
+{
+    Interactuable::ponerArea(nueva);
+    forma_.setSize(tamanoRect(nueva));
+    forma_.setPosition(posicionRect(nueva));
+}
+
 void ObjetoActividad::dibujar(sf::RenderWindow& ventana,
                               const sf::Font& fuente) const
 {

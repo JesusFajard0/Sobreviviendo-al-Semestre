@@ -1,0 +1,9 @@
+# mueble | idEscena | sprite | x | y | escala | baseAlto
+#
+# sprite:   assets/sprites/<sprite>.png
+# x, y:     esquina superior izquierda, en la vista de 640x360
+# escala:   0.5 si el PNG esta exportado al doble del tamaño final
+# baseAlto: alto (en pixeles del juego) de la franja inferior que bloquea el paso;
+#           el resto del mueble se puede rodear por detras
+
+mueble | apartamento | cama | 26 | 77 | 0.5 | 0

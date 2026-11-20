@@ -12,8 +12,10 @@ escena|cafeteria|Cafetería|universidad|1|normal|-|230,190,140|320|250
 
 # rectángulos: tipo | idEscena | x | y | ancho | alto
 
-rect_colision|apartamento|40|120|120|60
 rect_salida|apartamento|560|140|50|100
+rect_colision|apartamento|38|170|53|3
+rect_colision|apartamento|107|96|470|19
+rect_colision|apartamento|82|101|25|69
 rect_salida|universidad|560|140|50|100
 rect_colision|universidad|0|305|131|55
 rect_colision|universidad|515|306|125|54

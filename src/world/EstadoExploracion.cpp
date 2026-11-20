@@ -12,10 +12,39 @@
 #include "core/CompatSFML.hpp"
 #include "core/StateStack.hpp"
 #include "world/LectorObjetos.hpp"
+#include "world/LectorMuebles.hpp"
 #include "world/LectorNpcs.hpp"
 #include "dialogue/DialogoState.hpp"
 #include "world/ClaseState.hpp"
 #include "world/MenuDestinos.hpp"
+
+
+namespace
+{
+    // Rectángulo entre dos puntos (en cualquier orden), en píxeles enteros y
+    // recortado al área de juego de 640x360.
+    struct Caja
+    {
+        float x, y, ancho, alto;
+    };
+
+    Caja cajaEntre(sf::Vector2f a, sf::Vector2f b)
+    {
+        const float x1 = std::clamp(std::floor(std::min(a.x, b.x)), 0.f, 640.f);
+        const float y1 = std::clamp(std::floor(std::min(a.y, b.y)), 0.f, 360.f);
+        const float x2 = std::clamp(std::ceil(std::max(a.x, b.x)), 0.f, 640.f);
+        const float y2 = std::clamp(std::ceil(std::max(a.y, b.y)), 0.f, 360.f);
+
+        return { x1, y1, x2 - x1, y2 - y1 };
+    }
+
+    
+    // Número entero como texto, para las líneas que se copian a los .txt.
+    std::string entero(float valor)
+    {
+        return std::to_string(std::lround(valor));
+    }
+}
 
 namespace
 {
@@ -76,6 +105,11 @@ EstadoExploracion::EstadoExploracion(StateStack* pila,
     if (!LectorObjetos::cargarArchivo("data/objetos.txt", datosObjetos_))
     {
         std::cerr << "[EstadoExploracion] Hubo problemas al cargar data/objetos.txt.\n";
+    }
+    
+    if (!LectorMuebles::cargarArchivo("data/muebles.txt", datosMuebles_))
+    {
+        std::cerr << "[EstadoExploracion] Hubo problemas al cargar data/muebles.txt.\n";
     }
 
     // Avisa si algún objeto apunta a una escena que no existe.
@@ -153,14 +187,21 @@ void EstadoExploracion::cambiarEscena(const std::string& id)
     if (const sf::Texture* fondo = recursos_.obtenerTextura(claveFondo))
         escena_->ponerFondo(*fondo);
 
+
+    colisionesNuevas_ = 0;
+    arrastrando_ = false;
+    zonaActiva_ = nullptr;
+    zonaRedimensionando_ = false;
     personaje_.colocar(escena_->spawn());
 
     crearObjetos(id);
+    crearMuebles(id);
     crearNpcs(id);   // S2-7
 }
 
 void EstadoExploracion::crearObjetos(const std::string& idEscena)
 {
+    zonaActiva_ = nullptr;
     objetos_.clear();
 
     std::optional<Materia> examenHoy = tiempo_.examenHoy();
@@ -631,9 +672,145 @@ void EstadoExploracion::abrirMenuDestinos()
     ));
 }
 
+// Herramienta de zonas (F3): qué puerta o actividad hay bajo un punto.
+Interactuable* EstadoExploracion::zonaEn(const sf::Vector2f& punto)
+{
+    if (!escena_)
+        return nullptr;
+
+    // Los objetos se dibujan encima de la puerta, así que se prueban primero.
+    for (auto it = objetos_.rbegin(); it != objetos_.rend(); ++it)
+    {
+        if ((*it)->area().contains(punto))
+            return it->get();
+    }
+
+    Puerta* puerta = escena_->puerta();
+
+    if (puerta != nullptr && puerta->area().contains(punto))
+        return puerta;
+
+    return nullptr;
+}
+
+// Imprime la línea de la zona lista para pegarla en data/escenas.txt o
+// data/objetos.txt (reemplazando la línea que ya existe de esa zona).
+void EstadoExploracion::imprimirZona(const Interactuable& zona)
+{
+    if (!escena_)
+        return;
+
+    const sf::Vector2f p = posicionRect(zona.area());
+    const sf::Vector2f t = tamanoRect(zona.area());
+
+    if (const auto* objeto = dynamic_cast<const ObjetoActividad*>(&zona))
+    {
+        if (objeto->idActividad() == "presentar_examen")
+        {
+            std::cout << "[zonas] presentar_examen se coloca desde el codigo; "
+                         "no va en objetos.txt.\n";
+            return;
+        }
+
+        std::cout << "objeto | " << escena_->id() << " | "
+                  << objeto->idActividad() << " | "
+                  << entero(p.x) << " | " << entero(p.y) << " | "
+                  << entero(t.x) << " | " << entero(t.y) << std::endl;
+    }
+    else
+    {
+        std::cout << "rect_salida|" << escena_->id() << '|'
+                  << entero(p.x) << '|' << entero(p.y) << '|'
+                  << entero(t.x) << '|' << entero(t.y) << std::endl;
+    }
+}
+
+void EstadoExploracion::imprimirTodasLasZonas()
+{
+    if (!escena_)
+        return;
+
+    std::cout << "---- zonas de '" << escena_->id()
+              << "' (reemplazan las lineas actuales) ----\n";
+
+    if (Puerta* puerta = escena_->puerta())
+        imprimirZona(*puerta);
+
+    for (const std::unique_ptr<ObjetoActividad>& objeto : objetos_)
+        imprimirZona(*objeto);
+
+    for (const std::unique_ptr<Mueble>& mueble : muebles_)
+        imprimirMueble(*mueble);
+
+    std::cout << "----\n";
+}
+
 // ---------------------------------------------------------------
 // Eventos, actualización y dibujo
 // ---------------------------------------------------------------
+// Crea los muebles de la escena y registra la base de cada uno como colisión.
+void EstadoExploracion::crearMuebles(const std::string& idEscena)
+{
+    muebleActivo_ = nullptr;
+    muebleAjustandoBase_ = false;
+    muebles_.clear();
+
+    if (!escena_)
+        return;
+
+    for (const DatosMueble& d : datosMuebles_)
+    {
+        if (d.escena != idEscena)
+            continue;
+
+        const std::string clave = "mueble_" + d.sprite;
+
+        if (recursos_.obtenerTextura(clave) == nullptr)
+            recursos_.cargarTextura(clave, "assets/sprites/" + d.sprite + ".png");
+
+        const sf::Texture* textura = recursos_.obtenerTextura(clave);
+
+        if (textura == nullptr)
+            continue;   // cargarTextura ya avisó en la consola
+
+        auto mueble = std::make_unique<Mueble>(
+            *textura, d.sprite, d.x, d.y, d.escala, d.baseAlto);
+
+
+        muebles_.push_back(std::move(mueble));
+    }
+}
+
+// Mueble bajo un punto (si hay varios, el que se dibuja más adelante).
+Mueble* EstadoExploracion::muebleEn(const sf::Vector2f& punto)
+{
+    Mueble* mejor = nullptr;
+
+    for (const std::unique_ptr<Mueble>& m : muebles_)
+    {
+        if (m->area().contains(punto) &&
+            (mejor == nullptr || m->yPies() > mejor->yPies()))
+        {
+            mejor = m.get();
+        }
+    }
+
+    return mejor;
+}
+
+// Línea lista para pegar en data/muebles.txt (reemplaza la de ese mueble).
+void EstadoExploracion::imprimirMueble(const Mueble& mueble)
+{
+    if (!escena_)
+        return;
+
+    const sf::Vector2f p = posicionRect(mueble.area());
+
+    std::cout << "mueble | " << escena_->id() << " | " << mueble.nombre()
+              << " | " << entero(p.x) << " | " << entero(p.y)
+              << " | " << mueble.escala()
+              << " | " << entero(mueble.baseAlto()) << std::endl;
+}
 
 void EstadoExploracion::handleEvent(const sf::Event& event)
 {
@@ -698,14 +875,173 @@ void EstadoExploracion::handleEvent(const sf::Event& event)
         return;
     }
 
-    // Clic izquierdo: puede ser sobre el botón del HUD.
+    // Clic: botón del HUD y herramientas de F3 (colisiones, zonas y muebles).
     if (const auto* raton = event.getIf<sf::Event::MouseButtonPressed>())
     {
-        if (raton->button == sf::Mouse::Button::Left && ventana_ != nullptr)
+        if (ventana_ == nullptr)
+            return;
+
+        const sf::Vector2f p = ventana_->mapPixelToCoords(raton->position);
+
+        const bool shift =
+            sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift) ||
+            sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift);
+
+        const bool ctrl =
+            sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LControl) ||
+            sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RControl);
+
+        if (raton->button == sf::Mouse::Button::Left)
         {
-                    sf::View vistaHud = hud_.vista();
+            sf::View vistaHud = hud_.vista();
             vistaHud.setViewport(ventana_->getView().getViewport());
             hud_.ratonPresionado(ventana_->mapPixelToCoords(raton->position, vistaHud));
+
+            if (verColisiones_ && escena_)
+            {
+                if (ctrl)
+                {
+                    // Mover un mueble.
+                    Mueble* mueble = muebleEn(p);
+
+                    if (mueble != nullptr)
+                    {
+                        muebleActivo_ = mueble;
+                        muebleAjustandoBase_ = false;
+                        desfaseZona_ = p - posicionRect(mueble->area());
+                    }
+                }
+                else
+                {
+                    Interactuable* zona = shift ? nullptr : zonaEn(p);
+
+                    if (zona != nullptr)
+                    {
+                        // Mover una puerta o una actividad.
+                        zonaActiva_ = zona;
+                        zonaRedimensionando_ = false;
+                        desfaseZona_ = p - posicionRect(zona->area());
+                    }
+                    else
+                    {
+                        // Dibujar una colisión nueva.
+                        inicioArrastre_ = p;
+                        arrastrando_ = true;
+                    }
+                }
+            }
+        }
+        else if (raton->button == sf::Mouse::Button::Right &&
+                 verColisiones_ && escena_)
+        {
+            if (ctrl)
+            {
+                // Ajustar la base de un mueble (arrastrando arriba o abajo).
+                Mueble* mueble = muebleEn(p);
+
+                if (mueble != nullptr)
+                {
+                    muebleActivo_ = mueble;
+                    muebleAjustandoBase_ = true;
+                }
+            }
+            else
+            {
+                // Cambiar el tamaño de una puerta o actividad.
+                Interactuable* zona = zonaEn(p);
+
+                if (zona != nullptr)
+                {
+                    zonaActiva_ = zona;
+                    zonaRedimensionando_ = true;
+                }
+            }
+        }
+        return;
+    }
+    
+
+       // Al soltar el botón se cierra el rectángulo y se agrega a la escena.
+    if (const auto* suelta = event.getIf<sf::Event::MouseButtonReleased>())
+    {
+        if (muebleActivo_ != nullptr &&
+            suelta->button == (muebleAjustandoBase_ ? sf::Mouse::Button::Right
+                                                    : sf::Mouse::Button::Left))
+        {
+            imprimirMueble(*muebleActivo_);
+            muebleActivo_ = nullptr;
+            muebleAjustandoBase_ = false;
+            return;
+        }
+
+        if (zonaActiva_ != nullptr && suelta->button == (zonaRedimensionando_ ? sf::Mouse::Button::Right : sf::Mouse::Button::Left))
+        {
+            imprimirZona(*zonaActiva_);
+            zonaActiva_ = nullptr;
+            zonaRedimensionando_ = false;
+            return;
+        }
+
+        if (suelta->button == sf::Mouse::Button::Left && arrastrando_ && ventana_ != nullptr && escena_)
+        {
+            arrastrando_ = false;
+
+            const Caja c = cajaEntre(inicioArrastre_, ventana_->mapPixelToCoords(suelta->position));
+
+            if (c.ancho >= 2.f && c.alto >= 2.f)
+            {
+                escena_->agregarColision(c.x, c.y, c.ancho, c.alto);
+                ++colisionesNuevas_;
+
+                std::cout << "rect_colision|" << escena_->id() << '|'
+                          << c.x << '|' << c.y << '|'
+                          << c.ancho << '|' << c.alto << std::endl;
+            }
+        }
+        return;
+    }
+    
+    // Mientras se arrastra una zona, sigue al ratón.
+    if (const auto* mueve = event.getIf<sf::Event::MouseMoved>())
+    {
+        if (muebleActivo_ != nullptr && ventana_ != nullptr && escena_)
+        {
+            const sf::Vector2f p = ventana_->mapPixelToCoords(mueve->position);
+
+            if (muebleAjustandoBase_)
+            {
+                muebleActivo_->ponerBaseAlto(
+                    std::round(muebleActivo_->yPies() - p.y));
+            }
+            else
+            {
+                muebleActivo_->colocar(std::round(p.x - desfaseZona_.x),
+                                       std::round(p.y - desfaseZona_.y));
+            }
+
+            
+        }
+
+        if (zonaActiva_ != nullptr && ventana_ != nullptr)
+        {
+            const sf::Vector2f p = ventana_->mapPixelToCoords(mueve->position);
+            const sf::Vector2f pos = posicionRect(zonaActiva_->area());
+            const sf::Vector2f tam = tamanoRect(zonaActiva_->area());
+
+            if (zonaRedimensionando_)
+            {
+                zonaActiva_->ponerArea(crearRect(
+                    pos.x, pos.y,
+                    std::max(4.f, std::round(p.x - pos.x)),
+                    std::max(4.f, std::round(p.y - pos.y))));
+            }
+            else
+            {
+                zonaActiva_->ponerArea(crearRect(
+                    std::round(p.x - desfaseZona_.x),
+                    std::round(p.y - desfaseZona_.y),
+                    tam.x, tam.y));
+            }
         }
         return;
     }
@@ -722,7 +1058,40 @@ void EstadoExploracion::handleEvent(const sf::Event& event)
     if (tecla->code == sf::Keyboard::Key::F3)
     {
         verColisiones_ = !verColisiones_;
+
+        if (verColisiones_)
+            std::cout << "[colisiones] Arrastra con clic izquierdo para dibujar; "
+                         "Retroceso borra la ultima.\n";
         return;
+    }
+
+    if (tecla->code == sf::Keyboard::Key::Backspace && verColisiones_ && colisionesNuevas_ > 0 && escena_)
+    {
+        escena_->quitarUltimaColision();
+        --colisionesNuevas_;
+        std::cout << "[colisiones] Ultima borrada: quita tambien su linea "
+                     "rect_colision de arriba.\n";
+        return;
+    }
+
+    
+    if (verColisiones_ && escena_)
+    {
+        if (tecla->code == sf::Keyboard::Key::P)
+        {
+            imprimirTodasLasZonas();
+            return;
+        }
+
+        if (tecla->code == sf::Keyboard::Key::L)
+        {
+            const sf::Vector2f pos = personaje_.posicion();
+
+            std::cout << "[spawn] " << escena_->id()
+                      << ": las dos ultimas columnas de su linea 'escena' son "
+                      << entero(pos.x) << '|' << entero(pos.y) << std::endl;
+            return;
+        }
     }
 
     if (tecla->code != sf::Keyboard::Key::E || !escena_)
@@ -814,13 +1183,75 @@ void EstadoExploracion::draw(sf::RenderWindow& window)
 
     escena_->dibujar(window, fuente(), verColisiones_);
 
+        // Orden de profundidad: un mueble cuyo borde inferior queda más arriba que
+    // los pies del personaje se dibuja detrás de él; los demás, delante.
+    const sf::FloatRect pies = personaje_.hitbox();
+    const float yPiesPersonaje = posicionRect(pies).y + tamanoRect(pies).y;
+
+    std::vector<const Mueble*> ordenados;
+    for (const std::unique_ptr<Mueble>& m : muebles_)
+        ordenados.push_back(m.get());
+
+    std::sort(ordenados.begin(), ordenados.end(),
+              [](const Mueble* a, const Mueble* b)
+              { return a->yPies() < b->yPies(); });
+
+    for (const Mueble* m : ordenados)
+    {
+        if (m->yPies() <= yPiesPersonaje)
+            m->dibujar(window);
+    }
+
     for (const std::unique_ptr<ObjetoActividad>& objeto : objetos_)
-        objeto->dibujar(window, fuente());
+    {
+        if (verColisiones_)
+            objeto->dibujar(window, fuente());                 // rectángulo, nombre y [E]
+        else
+            objeto->Interactuable::dibujar(window, fuente());  // solo el aviso [E]
+    }
 
     for (const std::unique_ptr<Npc>& npc : npcs_)   // S2-7
         npc->dibujar(window, fuente());
-
     personaje_.dibujar(window);
+
+    for (const Mueble* m : ordenados)
+    {
+        if (m->yPies() > yPiesPersonaje)
+            m->dibujar(window);
+    }
+
+    // F3: base de cada mueble (la parte que bloquea el paso).
+    if (verColisiones_)
+    {
+        for (const Mueble* m : ordenados)
+        {
+            const sf::FloatRect c = m->colision();
+            
+            if (tamanoRect(c).y < 1.f)
+                continue;   // mueble sin base: no hay nada que mostrar
+            
+                sf::RectangleShape base(tamanoRect(c));
+            base.setPosition(posicionRect(c));
+            base.setFillColor(sf::Color(80, 200, 255, 60));
+            base.setOutlineColor(sf::Color(80, 200, 255));
+            base.setOutlineThickness(1.f);
+            window.draw(base);
+        }
+    }
+
+    // Herramienta de colisiones: rectángulo que se está dibujando.
+    if (arrastrando_)
+    {
+        const Caja c = cajaEntre(inicioArrastre_,
+                                 window.mapPixelToCoords(sf::Mouse::getPosition(window)));
+
+        sf::RectangleShape previa(sf::Vector2f(c.ancho, c.alto));
+        previa.setPosition(sf::Vector2f(c.x, c.y));
+        previa.setFillColor(sf::Color(255, 80, 80, 90));
+        previa.setOutlineColor(sf::Color(255, 80, 80));
+        previa.setOutlineThickness(1.f);
+        window.draw(previa);
+    }
 
     hud_.dibujar(window);
 

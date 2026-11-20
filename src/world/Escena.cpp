@@ -97,3 +97,18 @@ sf::FloatRect Escena::limites() const
 {
     return crearRect(0.f, 0.f, ANCHO_VISTA, ALTO_VISTA);
 }
+
+std::size_t Escena::agregarColisionMueble(float x, float y, float ancho, float alto)
+{
+    agregarColision(x, y, ancho, alto);
+    return obstaculos_.size() - 1;
+}
+
+void Escena::moverColision(std::size_t indice, float x, float y, float ancho, float alto)
+{
+    if (indice >= obstaculos_.size())
+        return;
+
+    obstaculos_[indice].setPosition(sf::Vector2f(x, y));
+    obstaculos_[indice].setSize(sf::Vector2f(ancho, alto));
+}

@@ -22,6 +22,8 @@
 #include "world/Npc.hpp"
 #include "dialogue/GestorDialogos.hpp"
 #include "world/Personaje.hpp"
+#include "world/DatosMueble.hpp"
+#include "world/Mueble.hpp"
 
 // Estado donde el jugador camina por las escenas.
 class EstadoExploracion : public State
@@ -38,6 +40,16 @@ private:
     void abrirMenuDestinos();
     void crearObjetos(const std::string& idEscena);
     void usarActividad(const std::string& idActividad);
+    
+    // Herramienta de zonas (F3): mover y redimensionar puertas y actividades.
+    Interactuable* zonaEn(const sf::Vector2f& punto);
+    void imprimirZona(const Interactuable& zona);
+    void imprimirTodasLasZonas();
+    
+    // Muebles (sprites con colisión en la base).
+    void crearMuebles(const std::string& idEscena);
+    Mueble* muebleEn(const sf::Vector2f& punto);
+    void imprimirMueble(const Mueble& mueble);
 
     // S2-7: NPCs quietos y dialogos.
     void crearNpcs(const std::string& idEscena);
@@ -74,6 +86,26 @@ private:
 
     // F3: muestra colisiones y puerta encima del arte.
     bool verColisiones_ = false;
+
+    
+    // Herramienta de colisiones (con F3 activo): arrastra el ratón para
+    // dibujar un rectángulo; Retroceso borra el último.
+    bool arrastrando_ = false;
+    sf::Vector2f inicioArrastre_{0.f, 0.f};
+    int colisionesNuevas_ = 0;
+    
+    // Zona (puerta o actividad) que se está moviendo o redimensionando.
+    Interactuable* zonaActiva_ = nullptr;
+    bool zonaRedimensionando_ = false;
+    sf::Vector2f desfaseZona_{0.f, 0.f};
+    
+    // Muebles (data/muebles.txt): todos y los de la escena actual.
+    std::vector<DatosMueble> datosMuebles_;
+    std::vector<std::unique_ptr<Mueble>> muebles_;
+
+    // Herramienta de muebles (F3 + Ctrl): mover el mueble o ajustar su base.
+    Mueble* muebleActivo_ = nullptr;
+    bool muebleAjustandoBase_ = false;
 
     // S2-3 / S2-4
     Asistencia asistencia_;

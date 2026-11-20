@@ -43,6 +43,11 @@ public:
     // Herramienta de colisiones (modo F3): agregar y quitar rectángulos en vivo.
     void agregarColision(float x, float y, float ancho, float alto);
     void quitarUltimaColision();
+    
+    // Colisión de un mueble: devuelve su posición en la lista, para poder
+    // moverla después con moverColision.
+    std::size_t agregarColisionMueble(float x, float y, float ancho, float alto);
+    void moverColision(std::size_t indice, float x, float y, float ancho, float alto);
 
 private:
     std::string id_;
