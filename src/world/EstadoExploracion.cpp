@@ -12,30 +12,10 @@
 #include "core/CompatSFML.hpp"
 #include "core/StateStack.hpp"
 #include "world/LectorObjetos.hpp"
+#include "world/LectorNpcs.hpp"
+#include "dialogue/DialogoState.hpp"
 #include "world/ClaseState.hpp"
-#include "world/FinDeSemanaState.hpp"
 #include "world/MenuDestinos.hpp"
-
-
-namespace
-{
-    // Rectángulo entre dos puntos (en cualquier orden), en píxeles enteros y
-    // recortado al área de juego de 640x360.
-    struct Caja
-    {
-        float x, y, ancho, alto;
-    };
-
-    Caja cajaEntre(sf::Vector2f a, sf::Vector2f b)
-    {
-        const float x1 = std::clamp(std::floor(std::min(a.x, b.x)), 0.f, 640.f);
-        const float y1 = std::clamp(std::floor(std::min(a.y, b.y)), 0.f, 360.f);
-        const float x2 = std::clamp(std::ceil(std::max(a.x, b.x)), 0.f, 640.f);
-        const float y2 = std::clamp(std::ceil(std::max(a.y, b.y)), 0.f, 360.f);
-
-        return { x1, y1, x2 - x1, y2 - y1 };
-    }
-}
 
 namespace
 {
@@ -82,10 +62,6 @@ EstadoExploracion::EstadoExploracion(StateStack* pila,
 {
     hud_.iniciar(recursos_);
 
-    // S2-5: efectos del fin de semana (data/fin_de_semana.txt)
-    if (!finDeSemana_.cargarDesdeArchivo("data/fin_de_semana.txt"))
-        std::cerr << "[EstadoExploracion] Hubo problemas al cargar data/fin_de_semana.txt.\n";
-
     // Configuración visual de la caja de texto (opaca para que se lea bien).
     fondoMensaje_.setFillColor(sf::Color(20, 20, 30, 255));
     fondoMensaje_.setOutlineColor(sf::Color::White);
@@ -109,6 +85,32 @@ EstadoExploracion::EstadoExploracion(StateStack* pila,
         {
             std::cerr << "[EstadoExploracion] Objeto en escena inexistente: "
                       << d.escena << '\n';
+        }
+    }
+
+    // S2-7: dialogos y NPCs.
+    if (!dialogos_.cargarDesdeArchivo("data/dialogos.txt"))
+    {
+        std::cerr << "[EstadoExploracion] Hubo problemas al cargar data/dialogos.txt.\n";
+    }
+
+    if (!LectorNpcs::cargarArchivo("data/npcs.txt", datosNpcs_))
+    {
+        std::cerr << "[EstadoExploracion] Hubo problemas al cargar data/npcs.txt.\n";
+    }
+
+    // Avisa si algun NPC apunta a una escena o a un dialogo que no existe.
+    for (const DatosNpc& d : datosNpcs_)
+    {
+        if (mapa_.datos(d.escena) == nullptr)
+        {
+            std::cerr << "[EstadoExploracion] NPC '" << d.nombre
+                      << "' en escena inexistente: " << d.escena << '\n';
+        }
+        if (!dialogos_.existe(d.dialogo))
+        {
+            std::cerr << "[EstadoExploracion] NPC '" << d.nombre
+                      << "' con dialogo inexistente: " << d.dialogo << '\n';
         }
     }
 
@@ -151,12 +153,10 @@ void EstadoExploracion::cambiarEscena(const std::string& id)
     if (const sf::Texture* fondo = recursos_.obtenerTextura(claveFondo))
         escena_->ponerFondo(*fondo);
 
-
-    colisionesNuevas_ = 0;
-    arrastrando_ = false;
     personaje_.colocar(escena_->spawn());
 
     crearObjetos(id);
+    crearNpcs(id);   // S2-7
 }
 
 void EstadoExploracion::crearObjetos(const std::string& idEscena)
@@ -316,9 +316,6 @@ void EstadoExploracion::usarActividad(const std::string& idActividad)
         return;
     }
 
-    // S2-5: orden del apartamento y discoteca del viernes
-    finDeSemana_.registrarActividad(idActividad);
-
     const DatosActividad* actividad = partida_.actividades.buscar(idActividad);
     const std::string nombre = (actividad != nullptr) ? actividad->nombre : idActividad;
 
@@ -352,7 +349,6 @@ void EstadoExploracion::usarActividad(const std::string& idActividad)
 
     if (r.evento == EventoTiempo::NuevoDia || r.evento == EventoTiempo::FinDeSemana)
     {
-        finDeSemana_.cerrarDia();   // S2-5
         const ResultadoAmanecer noche = colapso_.alAmanecer(estadisticas_);
         if (!noche.durmio)
             contenido += std::string("\n") + noche.mensaje + "\n";
@@ -450,21 +446,16 @@ void EstadoExploracion::revisarEventosTiempo()
         partida_.actividades.reiniciarContadores(); 
         const float mesada = GestorActividades::aplicarMesada(estadisticas_);
 
-        // S2-5: sorteo ponderado. Va DESPUES de terminarFinDeSemana(): asi la semana
-        // y partida_.materiaActiva() ya son las de la semana que empieza, y estudiar
-        // el fin de semana cuenta para la materia nueva si hubo cambio de fase.
-        ResultadoFinDeSemana fin = finDeSemana_.resolver(
-            estadisticas_, tiempo_.semana(), partida_.materiaActiva());
+        std::cout << "[Tiempo] Fin de semana: empieza la semana "
+                  << tiempo_.semana() << ".\n";
 
-        // Datos extra para la pantalla del fin de semana.
-        fin.mesada      = mesada;
-        fin.semanaNueva = tiempo_.semana();
-
-        std::cout << "[Tiempo] Fin de semana (" << fin.nombre << "): empieza la semana "
-                  << tiempo_.semana() << " (termino la " << semanaQueTermina << ").\n";
-
-        // Pantalla propia: se apila encima y, al pulsar ENTER, vuelve la exploracion.
-        m_stack->pushState(std::make_unique<FinDeSemanaState>(m_stack, recursos_, fin));
+        mostrarMensaje(
+            "== Fin de semana ==\n\n"
+            "Terminó la semana " + std::to_string(semanaQueTermina) + ".\n"
+            "Tus padres te envían la mesada: " + conSigno(mesada) + "\n\n"
+            "Empieza la semana " + std::to_string(tiempo_.semana()) + ".\n\n"
+            "(Presiona ENTER)"
+        );
         return;
     }
 
@@ -715,36 +706,6 @@ void EstadoExploracion::handleEvent(const sf::Event& event)
                     sf::View vistaHud = hud_.vista();
             vistaHud.setViewport(ventana_->getView().getViewport());
             hud_.ratonPresionado(ventana_->mapPixelToCoords(raton->position, vistaHud));
-            // Herramienta de colisiones (F3): empieza a dibujar un rectángulo.
-            if (verColisiones_ && escena_)
-            {
-                inicioArrastre_ = ventana_->mapPixelToCoords(raton->position);
-                arrastrando_ = true;
-            }
-        }
-        return;
-    }
-
-       // Al soltar el botón se cierra el rectángulo y se agrega a la escena.
-    if (const auto* suelta = event.getIf<sf::Event::MouseButtonReleased>())
-    {
-        if (suelta->button == sf::Mouse::Button::Left &&
-            arrastrando_ && ventana_ != nullptr && escena_)
-        {
-            arrastrando_ = false;
-
-            const Caja c = cajaEntre(inicioArrastre_,
-                                     ventana_->mapPixelToCoords(suelta->position));
-
-            if (c.ancho >= 2.f && c.alto >= 2.f)
-            {
-                escena_->agregarColision(c.x, c.y, c.ancho, c.alto);
-                ++colisionesNuevas_;
-
-                std::cout << "rect_colision|" << escena_->id() << '|'
-                          << c.x << '|' << c.y << '|'
-                          << c.ancho << '|' << c.alto << std::endl;
-            }
         }
         return;
     }
@@ -761,20 +722,6 @@ void EstadoExploracion::handleEvent(const sf::Event& event)
     if (tecla->code == sf::Keyboard::Key::F3)
     {
         verColisiones_ = !verColisiones_;
-
-        if (verColisiones_)
-            std::cout << "[colisiones] Arrastra con clic izquierdo para dibujar; "
-                         "Retroceso borra la ultima.\n";
-        return;
-    }
-
-    if (tecla->code == sf::Keyboard::Key::Backspace &&
-        verColisiones_ && colisionesNuevas_ > 0 && escena_)
-    {
-        escena_->quitarUltimaColision();
-        --colisionesNuevas_;
-        std::cout << "[colisiones] Ultima borrada: quita tambien su linea "
-                     "rect_colision de arriba.\n";
         return;
     }
 
@@ -796,6 +743,16 @@ void EstadoExploracion::handleEvent(const sf::Event& event)
         if (objeto->puedeInteractuar(personaje_.hitbox()))
         {
             objeto->interactuar();
+            return;
+        }
+    }
+
+    // S2-7: hablar con un NPC.
+    for (const std::unique_ptr<Npc>& npc : npcs_)
+    {
+        if (npc->puedeInteractuar(personaje_.hitbox()))
+        {
+            npc->interactuar();
             return;
         }
     }
@@ -843,6 +800,9 @@ void EstadoExploracion::update(float dt)
 
     for (const std::unique_ptr<ObjetoActividad>& objeto : objetos_)
         objeto->puedeInteractuar(personaje_.hitbox());
+
+    for (const std::unique_ptr<Npc>& npc : npcs_)   // S2-7
+        npc->puedeInteractuar(personaje_.hitbox());
 }
 
 void EstadoExploracion::draw(sf::RenderWindow& window)
@@ -857,21 +817,10 @@ void EstadoExploracion::draw(sf::RenderWindow& window)
     for (const std::unique_ptr<ObjetoActividad>& objeto : objetos_)
         objeto->dibujar(window, fuente());
 
+    for (const std::unique_ptr<Npc>& npc : npcs_)   // S2-7
+        npc->dibujar(window, fuente());
+
     personaje_.dibujar(window);
-
-    // Herramienta de colisiones: rectángulo que se está dibujando.
-    if (arrastrando_)
-    {
-        const Caja c = cajaEntre(inicioArrastre_,
-                                 window.mapPixelToCoords(sf::Mouse::getPosition(window)));
-
-        sf::RectangleShape previa(sf::Vector2f(c.ancho, c.alto));
-        previa.setPosition(sf::Vector2f(c.x, c.y));
-        previa.setFillColor(sf::Color(255, 80, 80, 90));
-        previa.setOutlineColor(sf::Color(255, 80, 80));
-        previa.setOutlineThickness(1.f);
-        window.draw(previa);
-    }
 
     hud_.dibujar(window);
 
@@ -952,7 +901,6 @@ void EstadoExploracion::revisarColapso()
 
         if (ev == EventoTiempo::NuevoDia || ev == EventoTiempo::FinDeSemana)
         {
-            finDeSemana_.cerrarDia();   // S2-5
             const ResultadoAmanecer noche = colapso_.alAmanecer(estadisticas_);
             if (!noche.durmio)
                 texto += std::string("\n") + noche.mensaje + "\n";
@@ -963,4 +911,42 @@ void EstadoExploracion::revisarColapso()
 
     std::cout << "[Colapso] " << r.mensaje << '\n';
     mostrarMensaje(texto);
+}
+
+// ---------------------------------------------------------------
+// S2-7: NPCs y dialogos
+// ---------------------------------------------------------------
+void EstadoExploracion::crearNpcs(const std::string& idEscena)
+{
+    npcs_.clear();
+
+    for (const DatosNpc& d : datosNpcs_)
+    {
+        if (d.escena != idEscena)
+            continue;
+
+        // Un NPC sin dialogo valido no se coloca (ya se aviso al cargar).
+        if (!dialogos_.existe(d.dialogo))
+            continue;
+
+        npcs_.push_back(std::make_unique<Npc>(
+            crearRect(d.x, d.y, d.ancho, d.alto),
+            d.nombre,
+            d.dialogo,
+            [this](const std::string& id) { hablarCon(id); }
+        ));
+    }
+}
+
+void EstadoExploracion::hablarCon(const std::string& idDialogo)
+{
+    const std::vector<LineaDialogo>* lineas = dialogos_.buscar(idDialogo);
+    if (lineas == nullptr)
+    {
+        std::cerr << "[EstadoExploracion] Dialogo inexistente: " << idDialogo << '\n';
+        return;
+    }
+
+    // Se apila encima: mientras dura, la exploracion no recibe teclas.
+    m_stack->pushState(std::make_unique<DialogoState>(m_stack, fuente(), *lineas));
 }

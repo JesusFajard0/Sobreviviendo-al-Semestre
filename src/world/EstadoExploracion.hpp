@@ -13,12 +13,14 @@
 #include "systems/Tiempo.hpp"
 #include "systems/Asistencia.hpp"
 #include "systems/Colapso.hpp"
-#include "systems/FinDeSemana.hpp"
 #include "ui/Hud.hpp"
 #include "world/DatosObjeto.hpp"
 #include "world/Escena.hpp"
 #include "world/MapaEscenas.hpp"
 #include "world/ObjetoActividad.hpp"
+#include "world/DatosNpc.hpp"
+#include "world/Npc.hpp"
+#include "dialogue/GestorDialogos.hpp"
 #include "world/Personaje.hpp"
 
 // Estado donde el jugador camina por las escenas.
@@ -36,6 +38,10 @@ private:
     void abrirMenuDestinos();
     void crearObjetos(const std::string& idEscena);
     void usarActividad(const std::string& idActividad);
+
+    // S2-7: NPCs quietos y dialogos.
+    void crearNpcs(const std::string& idEscena);
+    void hablarCon(const std::string& idDialogo);
 
     // Caja de texto modal: pausa el juego hasta que se pulse ENTER o E.
     // Se coloca encima del personaje sin salirse de la pantalla.
@@ -69,19 +75,9 @@ private:
     // F3: muestra colisiones y puerta encima del arte.
     bool verColisiones_ = false;
 
-    
-    // Herramienta de colisiones (con F3 activo): arrastra el ratón para
-    // dibujar un rectángulo; Retroceso borra el último.
-    bool arrastrando_ = false;
-    sf::Vector2f inicioArrastre_{0.f, 0.f};
-    int colisionesNuevas_ = 0;
-
     // S2-3 / S2-4
     Asistencia asistencia_;
     Colapso    colapso_;
-
-    // S2-5: fin de semana automatico, orden del apartamento y modificador de la semana.
-    FinDeSemana finDeSemana_;
 
     // --- Caja de texto modal ---
     bool mostrandoMensaje_ = false;
@@ -107,4 +103,10 @@ private:
     // Todos los objetos del juego (data/objetos.txt) y los de la escena actual.
     std::vector<DatosObjeto> datosObjetos_;
     std::vector<std::unique_ptr<ObjetoActividad>> objetos_;
+
+    // S2-7: dialogos (data/dialogos.txt), todos los NPCs (data/npcs.txt)
+    // y los de la escena actual.
+    GestorDialogos dialogos_;
+    std::vector<DatosNpc> datosNpcs_;
+    std::vector<std::unique_ptr<Npc>> npcs_;
 };
