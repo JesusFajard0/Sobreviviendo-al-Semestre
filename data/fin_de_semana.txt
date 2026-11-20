@@ -1,0 +1,13 @@
+# id | nombre | energia | conocimiento | saludMental | estres | dopamina | dinero | orden | pesoBase | texto
+#
+# Efectos que se aplican UNA vez al resolver el fin de semana (+ sube, - baja).
+#   id:           rumba, aseo o estudio (no cambiar: el codigo los reconoce por id)
+#   conocimiento: va a la materia de la semana que empieza
+#   orden:        orden del apartamento (0 a 100)
+#   pesoBase:     peso minimo en el sorteo (los ajustes por estadisticas se suman a esto)
+#   texto:        lo que se cuenta en la pantalla del fin de semana
+# Los ajustes por estadisticas del sorteo estan en FinDeSemana.cpp (constantes TRAMO_*).
+
+rumba | Rumba | -25 | 0 | 5 | -10 | 30 | -30 | 0 | 1 | Este fin de semana te fuiste de rumba y la pasaste genial, pero amaneces cansado y con menos dinero.
+aseo | Aseo | -15 | 0 | 10 | -5 | 0 | 0 | 60 | 1 | Este fin de semana lavaste los platos, limpiaste y ordenaste todo el apartamento. Cansa, pero se siente bien.
+estudio | Estudio | -15 | 12 | -5 | 15 | -10 | 0 | 0 | 1 | Este fin de semana te encerraste a estudiar y adelantaste materia, aunque llegas al lunes con más estrés.

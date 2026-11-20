@@ -13,6 +13,7 @@
 #include "core/StateStack.hpp"
 #include "world/LectorObjetos.hpp"
 #include "world/ClaseState.hpp"
+#include "world/FinDeSemanaState.hpp"
 #include "world/MenuDestinos.hpp"
 
 namespace
@@ -59,6 +60,10 @@ EstadoExploracion::EstadoExploracion(StateStack* pila,
       textoMensaje_(fuente(), "", TAM_TEXTO_MENSAJE)   // en SFML 3 el texto necesita fuente al crearse
 {
     hud_.iniciar(recursos_);
+
+    // S2-5: efectos del fin de semana (data/fin_de_semana.txt)
+    if (!finDeSemana_.cargarDesdeArchivo("data/fin_de_semana.txt"))
+        std::cerr << "[EstadoExploracion] Hubo problemas al cargar data/fin_de_semana.txt.\n";
 
     // Configuración visual de la caja de texto (opaca para que se lea bien).
     fondoMensaje_.setFillColor(sf::Color(20, 20, 30, 255));
@@ -287,6 +292,9 @@ void EstadoExploracion::usarActividad(const std::string& idActividad)
         return;
     }
 
+    // S2-5: orden del apartamento y discoteca del viernes
+    finDeSemana_.registrarActividad(idActividad);
+
     const DatosActividad* actividad = partida_.actividades.buscar(idActividad);
     const std::string nombre = (actividad != nullptr) ? actividad->nombre : idActividad;
 
@@ -320,6 +328,7 @@ void EstadoExploracion::usarActividad(const std::string& idActividad)
 
     if (r.evento == EventoTiempo::NuevoDia || r.evento == EventoTiempo::FinDeSemana)
     {
+        finDeSemana_.cerrarDia();   // S2-5
         const ResultadoAmanecer noche = colapso_.alAmanecer(estadisticas_);
         if (!noche.durmio)
             contenido += std::string("\n") + noche.mensaje + "\n";
@@ -417,16 +426,21 @@ void EstadoExploracion::revisarEventosTiempo()
         partida_.actividades.reiniciarContadores(); 
         const float mesada = GestorActividades::aplicarMesada(estadisticas_);
 
-        std::cout << "[Tiempo] Fin de semana: empieza la semana "
-                  << tiempo_.semana() << ".\n";
+        // S2-5: sorteo ponderado. Va DESPUES de terminarFinDeSemana(): asi la semana
+        // y partida_.materiaActiva() ya son las de la semana que empieza, y estudiar
+        // el fin de semana cuenta para la materia nueva si hubo cambio de fase.
+        ResultadoFinDeSemana fin = finDeSemana_.resolver(
+            estadisticas_, tiempo_.semana(), partida_.materiaActiva());
 
-        mostrarMensaje(
-            "== Fin de semana ==\n\n"
-            "Terminó la semana " + std::to_string(semanaQueTermina) + ".\n"
-            "Tus padres te envían la mesada: " + conSigno(mesada) + "\n\n"
-            "Empieza la semana " + std::to_string(tiempo_.semana()) + ".\n\n"
-            "(Presiona ENTER)"
-        );
+        // Datos extra para la pantalla del fin de semana.
+        fin.mesada      = mesada;
+        fin.semanaNueva = tiempo_.semana();
+
+        std::cout << "[Tiempo] Fin de semana (" << fin.nombre << "): empieza la semana "
+                  << tiempo_.semana() << " (termino la " << semanaQueTermina << ").\n";
+
+        // Pantalla propia: se apila encima y, al pulsar ENTER, vuelve la exploracion.
+        m_stack->pushState(std::make_unique<FinDeSemanaState>(m_stack, recursos_, fin));
         return;
     }
 
@@ -856,6 +870,7 @@ void EstadoExploracion::revisarColapso()
 
         if (ev == EventoTiempo::NuevoDia || ev == EventoTiempo::FinDeSemana)
         {
+            finDeSemana_.cerrarDia();   // S2-5
             const ResultadoAmanecer noche = colapso_.alAmanecer(estadisticas_);
             if (!noche.durmio)
                 texto += std::string("\n") + noche.mensaje + "\n";

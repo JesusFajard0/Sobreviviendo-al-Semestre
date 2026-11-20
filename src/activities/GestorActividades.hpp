@@ -51,7 +51,7 @@ public:
 
     // Dinero que envían los padres cada semana. Lo llama quien reciba
     // el evento NuevaSemana.
-    static constexpr float MESADA = 100.f;
+    static constexpr float MESADA = 50.f;
     static float aplicarMesada(Estadisticas& estadisticas);
 
     // Texto corto para mostrar al jugador cuando no se pudo.
