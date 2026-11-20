@@ -1,0 +1,13 @@
+# npc | idEscena | nombre | idDialogo | x | y | ancho | alto
+#
+# NPCs quietos. Cada uno es un rectangulo (mientras no haya arte) con su
+# nombre debajo. Al acercarse el jugador ve "[E]" y puede hablar con el.
+# idDialogo debe existir en data/dialogos.txt. La vista mide 640 x 360.
+
+npc | apartamento   | Compañero de piso | companero_piso        | 480 | 170 | 24 | 36
+npc | universidad   | Estudiante        | estudiante_patio      | 120 | 170 | 24 | 36
+npc | biblioteca    | Bibliotecaria     | bibliotecaria         |  90 | 170 | 24 | 36
+npc | cafeteria     | Cafetero          | cafetero              |  90 | 170 | 24 | 36
+npc | salon_calculo | Profesor          | profesor_calculo      |  90 | 110 | 24 | 36
+npc | salon_fisica  | Profesora         | profesor_fisica       |  90 | 110 | 24 | 36
+npc | laboratorio   | Profesor          | profesor_programacion |  90 | 110 | 24 | 36

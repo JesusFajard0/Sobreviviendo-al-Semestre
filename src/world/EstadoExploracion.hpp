@@ -18,6 +18,9 @@
 #include "world/Escena.hpp"
 #include "world/MapaEscenas.hpp"
 #include "world/ObjetoActividad.hpp"
+#include "world/DatosNpc.hpp"
+#include "world/Npc.hpp"
+#include "dialogue/GestorDialogos.hpp"
 #include "world/Personaje.hpp"
 #include "world/DatosMueble.hpp"
 #include "world/Mueble.hpp"
@@ -47,6 +50,10 @@ private:
     void crearMuebles(const std::string& idEscena);
     Mueble* muebleEn(const sf::Vector2f& punto);
     void imprimirMueble(const Mueble& mueble);
+
+    // S2-7: NPCs quietos y dialogos.
+    void crearNpcs(const std::string& idEscena);
+    void hablarCon(const std::string& idDialogo);
 
     // Caja de texto modal: pausa el juego hasta que se pulse ENTER o E.
     // Se coloca encima del personaje sin salirse de la pantalla.
@@ -128,4 +135,10 @@ private:
     // Todos los objetos del juego (data/objetos.txt) y los de la escena actual.
     std::vector<DatosObjeto> datosObjetos_;
     std::vector<std::unique_ptr<ObjetoActividad>> objetos_;
+
+    // S2-7: dialogos (data/dialogos.txt), todos los NPCs (data/npcs.txt)
+    // y los de la escena actual.
+    GestorDialogos dialogos_;
+    std::vector<DatosNpc> datosNpcs_;
+    std::vector<std::unique_ptr<Npc>> npcs_;
 };

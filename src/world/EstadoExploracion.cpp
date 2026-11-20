@@ -13,6 +13,8 @@
 #include "core/StateStack.hpp"
 #include "world/LectorObjetos.hpp"
 #include "world/LectorMuebles.hpp"
+#include "world/LectorNpcs.hpp"
+#include "dialogue/DialogoState.hpp"
 #include "world/ClaseState.hpp"
 #include "world/MenuDestinos.hpp"
 
@@ -120,6 +122,32 @@ EstadoExploracion::EstadoExploracion(StateStack* pila,
         }
     }
 
+    // S2-7: dialogos y NPCs.
+    if (!dialogos_.cargarDesdeArchivo("data/dialogos.txt"))
+    {
+        std::cerr << "[EstadoExploracion] Hubo problemas al cargar data/dialogos.txt.\n";
+    }
+
+    if (!LectorNpcs::cargarArchivo("data/npcs.txt", datosNpcs_))
+    {
+        std::cerr << "[EstadoExploracion] Hubo problemas al cargar data/npcs.txt.\n";
+    }
+
+    // Avisa si algun NPC apunta a una escena o a un dialogo que no existe.
+    for (const DatosNpc& d : datosNpcs_)
+    {
+        if (mapa_.datos(d.escena) == nullptr)
+        {
+            std::cerr << "[EstadoExploracion] NPC '" << d.nombre
+                      << "' en escena inexistente: " << d.escena << '\n';
+        }
+        if (!dialogos_.existe(d.dialogo))
+        {
+            std::cerr << "[EstadoExploracion] NPC '" << d.nombre
+                      << "' con dialogo inexistente: " << d.dialogo << '\n';
+        }
+    }
+
     cambiarEscena(mapa_.raiz());
 }
 
@@ -168,6 +196,7 @@ void EstadoExploracion::cambiarEscena(const std::string& id)
 
     crearObjetos(id);
     crearMuebles(id);
+    crearNpcs(id);   // S2-7
 }
 
 void EstadoExploracion::crearObjetos(const std::string& idEscena)
@@ -1086,6 +1115,16 @@ void EstadoExploracion::handleEvent(const sf::Event& event)
             return;
         }
     }
+
+    // S2-7: hablar con un NPC.
+    for (const std::unique_ptr<Npc>& npc : npcs_)
+    {
+        if (npc->puedeInteractuar(personaje_.hitbox()))
+        {
+            npc->interactuar();
+            return;
+        }
+    }
 }
 void EstadoExploracion::update(float dt)
 {
@@ -1130,6 +1169,9 @@ void EstadoExploracion::update(float dt)
 
     for (const std::unique_ptr<ObjetoActividad>& objeto : objetos_)
         objeto->puedeInteractuar(personaje_.hitbox());
+
+    for (const std::unique_ptr<Npc>& npc : npcs_)   // S2-7
+        npc->puedeInteractuar(personaje_.hitbox());
 }
 
 void EstadoExploracion::draw(sf::RenderWindow& window)
@@ -1168,6 +1210,8 @@ void EstadoExploracion::draw(sf::RenderWindow& window)
             objeto->Interactuable::dibujar(window, fuente());  // solo el aviso [E]
     }
 
+    for (const std::unique_ptr<Npc>& npc : npcs_)   // S2-7
+        npc->dibujar(window, fuente());
     personaje_.dibujar(window);
 
     for (const Mueble* m : ordenados)
@@ -1298,4 +1342,42 @@ void EstadoExploracion::revisarColapso()
 
     std::cout << "[Colapso] " << r.mensaje << '\n';
     mostrarMensaje(texto);
+}
+
+// ---------------------------------------------------------------
+// S2-7: NPCs y dialogos
+// ---------------------------------------------------------------
+void EstadoExploracion::crearNpcs(const std::string& idEscena)
+{
+    npcs_.clear();
+
+    for (const DatosNpc& d : datosNpcs_)
+    {
+        if (d.escena != idEscena)
+            continue;
+
+        // Un NPC sin dialogo valido no se coloca (ya se aviso al cargar).
+        if (!dialogos_.existe(d.dialogo))
+            continue;
+
+        npcs_.push_back(std::make_unique<Npc>(
+            crearRect(d.x, d.y, d.ancho, d.alto),
+            d.nombre,
+            d.dialogo,
+            [this](const std::string& id) { hablarCon(id); }
+        ));
+    }
+}
+
+void EstadoExploracion::hablarCon(const std::string& idDialogo)
+{
+    const std::vector<LineaDialogo>* lineas = dialogos_.buscar(idDialogo);
+    if (lineas == nullptr)
+    {
+        std::cerr << "[EstadoExploracion] Dialogo inexistente: " << idDialogo << '\n';
+        return;
+    }
+
+    // Se apila encima: mientras dura, la exploracion no recibe teclas.
+    m_stack->pushState(std::make_unique<DialogoState>(m_stack, fuente(), *lineas));
 }
