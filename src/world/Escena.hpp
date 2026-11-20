@@ -39,6 +39,11 @@ public:
     void dibujar(sf::RenderWindow& ventana, const sf::Font& fuente,
                  bool verColisiones = false) const;
 
+    
+    // Herramienta de colisiones (modo F3): agregar y quitar rectángulos en vivo.
+    void agregarColision(float x, float y, float ancho, float alto);
+    void quitarUltimaColision();
+
 private:
     std::string id_;
     sf::Vector2f spawn_;

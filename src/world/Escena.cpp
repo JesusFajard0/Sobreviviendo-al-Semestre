@@ -24,7 +24,7 @@ Escena::Escena(const DatosEscena& datos,
         {
             sf::RectangleShape obstaculo(sf::Vector2f(r.ancho, r.alto));
             obstaculo.setPosition(sf::Vector2f(r.x, r.y));
-            obstaculo.setFillColor(sf::Color(120, 120, 130));
+            obstaculo.setFillColor(sf::Color(120, 120, 130, 150));
 
             obstaculos_.push_back(obstaculo);
         }
@@ -53,6 +53,22 @@ void Escena::ponerFondo(const sf::Texture& textura)
     fondo_.setTexture(&textura, true);
     fondo_.setFillColor(sf::Color::White);
     tieneFondo_ = true;
+}
+
+
+void Escena::agregarColision(float x, float y, float ancho, float alto)
+{
+    sf::RectangleShape obstaculo(sf::Vector2f(ancho, alto));
+    obstaculo.setPosition(sf::Vector2f(x, y));
+    obstaculo.setFillColor(sf::Color(120, 120, 130, 150));
+
+    obstaculos_.push_back(obstaculo);
+}
+
+void Escena::quitarUltimaColision()
+{
+    if (!obstaculos_.empty())
+        obstaculos_.pop_back();
 }
 
 void Escena::dibujar(sf::RenderWindow& ventana, const sf::Font& fuente, bool verColisiones) const
