@@ -5,8 +5,8 @@
 # Mientras no haya arte, se dibuja como un rectangulo con el nombre encima.
 
 # --- Apartamento (fila de arriba) ---
-objeto | apartamento | dormir          |  20 |  50 | 80 | 28
-objeto | apartamento | siesta          | 130 |  50 | 80 | 28
+objeto | apartamento | dormir | 103 | 122 | 27 | 51
+objeto | apartamento | siesta | 38 | 170 | 51 | 14
 objeto | apartamento | ducharse        | 240 |  50 | 80 | 28
 objeto | apartamento | lavar_platos    | 350 |  50 | 80 | 28
 objeto | apartamento | comer_casa      | 460 |  50 | 80 | 28

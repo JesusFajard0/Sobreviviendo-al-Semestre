@@ -19,6 +19,13 @@ void Puerta::interactuar()
         accion_();
 }
 
+void Puerta::ponerArea(const sf::FloatRect& nueva)
+{
+    Interactuable::ponerArea(nueva);
+    forma_.setSize(tamanoRect(nueva));
+    forma_.setPosition(posicionRect(nueva));
+}
+
 void Puerta::dibujar(sf::RenderWindow& ventana,
                      const sf::Font& fuente) const
 {
