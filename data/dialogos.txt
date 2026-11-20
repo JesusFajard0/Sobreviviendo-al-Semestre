@@ -1,0 +1,28 @@
+# dialogo | idDialogo | hablante | texto
+#
+# Cada linea es una frase. Las frases con el mismo idDialogo forman una
+# conversacion, en el orden en que aparecen en este archivo.
+# El texto no puede llevar el caracter "|". El hablante puede ir vacio
+# (narracion). Los NPCs de data/npcs.txt apuntan a un idDialogo.
+
+dialogo | estudiante_patio | Estudiante | ¡Hola! ¿Eres nuevo por aquí? Se nota por la cara de susto.
+dialogo | estudiante_patio | Estudiante | Un consejo: no te saltes las clases de la mañana, las faltas se acumulan.
+dialogo | estudiante_patio | Estudiante | Y duerme algo. Yo colapsé en el primer parcial y no fue bonito.
+
+dialogo | bibliotecaria | Bibliotecaria | Shhh... aquí se viene a estudiar, no a conversar.
+dialogo | bibliotecaria | Bibliotecaria | Estudiar en la biblioteca rinde más que en casa, pero cansa.
+
+dialogo | cafetero | Cafetero | ¡Bienvenido a la cafetería! Aquí se come barato.
+dialogo | cafetero | Cafetero | Con el estómago vacío no se aprende nada, aprovecha.
+
+dialogo | profesor_calculo | Profesor | Buenos días. El primer parcial es el viernes de la semana 3.
+dialogo | profesor_calculo | Profesor | Derivadas, límites e integrales. Les recomiendo no dejarlo para el final.
+
+dialogo | profesor_fisica | Profesora | La física no se aprende mirando el libro, hay que resolver problemas.
+dialogo | profesor_fisica | Profesora | El parcial cae en la semana 5. Ya tienen el tiempo contado.
+
+dialogo | profesor_programacion | Profesor | En programación solo se aprende programando.
+dialogo | profesor_programacion | Profesor | El examen final es en la semana 8. ¡Que no se les acaben las energías!
+
+dialogo | companero_piso | Compañero de piso | Buenas. Si no lavas los platos, yo tampoco los lavo.
+dialogo | companero_piso | Compañero de piso | Mira el manual del apartamento, trae los límites de cada actividad.
