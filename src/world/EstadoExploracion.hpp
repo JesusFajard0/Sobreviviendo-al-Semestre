@@ -68,6 +68,13 @@ private:
     // F3: muestra colisiones y puerta encima del arte.
     bool verColisiones_ = false;
 
+    
+    // Herramienta de colisiones (con F3 activo): arrastra el ratón para
+    // dibujar un rectángulo; Retroceso borra el último.
+    bool arrastrando_ = false;
+    sf::Vector2f inicioArrastre_{0.f, 0.f};
+    int colisionesNuevas_ = 0;
+
     // S2-3 / S2-4
     Asistencia asistencia_;
     Colapso    colapso_;

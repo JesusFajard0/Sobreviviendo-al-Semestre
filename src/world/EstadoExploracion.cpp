@@ -15,6 +15,27 @@
 #include "world/ClaseState.hpp"
 #include "world/MenuDestinos.hpp"
 
+
+namespace
+{
+    // Rectángulo entre dos puntos (en cualquier orden), en píxeles enteros y
+    // recortado al área de juego de 640x360.
+    struct Caja
+    {
+        float x, y, ancho, alto;
+    };
+
+    Caja cajaEntre(sf::Vector2f a, sf::Vector2f b)
+    {
+        const float x1 = std::clamp(std::floor(std::min(a.x, b.x)), 0.f, 640.f);
+        const float y1 = std::clamp(std::floor(std::min(a.y, b.y)), 0.f, 360.f);
+        const float x2 = std::clamp(std::ceil(std::max(a.x, b.x)), 0.f, 640.f);
+        const float y2 = std::clamp(std::ceil(std::max(a.y, b.y)), 0.f, 360.f);
+
+        return { x1, y1, x2 - x1, y2 - y1 };
+    }
+}
+
 namespace
 {
     // Tamaño de la vista lógica (el mismo que usa Juego).
@@ -125,6 +146,9 @@ void EstadoExploracion::cambiarEscena(const std::string& id)
     if (const sf::Texture* fondo = recursos_.obtenerTextura(claveFondo))
         escena_->ponerFondo(*fondo);
 
+
+    colisionesNuevas_ = 0;
+    arrastrando_ = false;
     personaje_.colocar(escena_->spawn());
 
     crearObjetos(id);
@@ -677,6 +701,36 @@ void EstadoExploracion::handleEvent(const sf::Event& event)
                     sf::View vistaHud = hud_.vista();
             vistaHud.setViewport(ventana_->getView().getViewport());
             hud_.ratonPresionado(ventana_->mapPixelToCoords(raton->position, vistaHud));
+            // Herramienta de colisiones (F3): empieza a dibujar un rectángulo.
+            if (verColisiones_ && escena_)
+            {
+                inicioArrastre_ = ventana_->mapPixelToCoords(raton->position);
+                arrastrando_ = true;
+            }
+        }
+        return;
+    }
+
+       // Al soltar el botón se cierra el rectángulo y se agrega a la escena.
+    if (const auto* suelta = event.getIf<sf::Event::MouseButtonReleased>())
+    {
+        if (suelta->button == sf::Mouse::Button::Left &&
+            arrastrando_ && ventana_ != nullptr && escena_)
+        {
+            arrastrando_ = false;
+
+            const Caja c = cajaEntre(inicioArrastre_,
+                                     ventana_->mapPixelToCoords(suelta->position));
+
+            if (c.ancho >= 2.f && c.alto >= 2.f)
+            {
+                escena_->agregarColision(c.x, c.y, c.ancho, c.alto);
+                ++colisionesNuevas_;
+
+                std::cout << "rect_colision|" << escena_->id() << '|'
+                          << c.x << '|' << c.y << '|'
+                          << c.ancho << '|' << c.alto << std::endl;
+            }
         }
         return;
     }
@@ -693,6 +747,20 @@ void EstadoExploracion::handleEvent(const sf::Event& event)
     if (tecla->code == sf::Keyboard::Key::F3)
     {
         verColisiones_ = !verColisiones_;
+
+        if (verColisiones_)
+            std::cout << "[colisiones] Arrastra con clic izquierdo para dibujar; "
+                         "Retroceso borra la ultima.\n";
+        return;
+    }
+
+    if (tecla->code == sf::Keyboard::Key::Backspace &&
+        verColisiones_ && colisionesNuevas_ > 0 && escena_)
+    {
+        escena_->quitarUltimaColision();
+        --colisionesNuevas_;
+        std::cout << "[colisiones] Ultima borrada: quita tambien su linea "
+                     "rect_colision de arriba.\n";
         return;
     }
 
@@ -776,6 +844,20 @@ void EstadoExploracion::draw(sf::RenderWindow& window)
         objeto->dibujar(window, fuente());
 
     personaje_.dibujar(window);
+
+    // Herramienta de colisiones: rectángulo que se está dibujando.
+    if (arrastrando_)
+    {
+        const Caja c = cajaEntre(inicioArrastre_,
+                                 window.mapPixelToCoords(sf::Mouse::getPosition(window)));
+
+        sf::RectangleShape previa(sf::Vector2f(c.ancho, c.alto));
+        previa.setPosition(sf::Vector2f(c.x, c.y));
+        previa.setFillColor(sf::Color(255, 80, 80, 90));
+        previa.setOutlineColor(sf::Color(255, 80, 80));
+        previa.setOutlineThickness(1.f);
+        window.draw(previa);
+    }
 
     hud_.dibujar(window);
 
