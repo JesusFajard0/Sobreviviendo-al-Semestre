@@ -13,6 +13,7 @@
 #include "systems/Tiempo.hpp"
 #include "systems/Asistencia.hpp"
 #include "systems/Colapso.hpp"
+#include "systems/FinDeSemana.hpp"
 #include "ui/Hud.hpp"
 #include "world/DatosObjeto.hpp"
 #include "world/Escena.hpp"
@@ -107,10 +108,12 @@ private:
     Mueble* muebleActivo_ = nullptr;
     bool muebleAjustandoBase_ = false;
 
-    // S2-3 / S2-4
+        // S2-3 / S2-4
     Asistencia asistencia_;
     Colapso    colapso_;
 
+    // S2-5: fin de semana automatico, orden del apartamento y modificador de la semana.
+    FinDeSemana finDeSemana_;
     // --- Caja de texto modal ---
     bool mostrandoMensaje_ = false;
     sf::RectangleShape fondoMensaje_;

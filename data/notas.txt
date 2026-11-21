@@ -1,0 +1,13 @@
+# Pesos de la nota del examen (S2-6).
+# El puntaje (0 a 100) mezcla tres partes; los pesos se normalizan, asi que
+# no hace falta que sumen 100. La nota final es el puntaje / 5 (entero, sobre 20).
+#
+# peso_conocimiento: lo que sabias de la materia
+# peso_estado:       como llegas (energia alta y estres bajo, justo antes de presentar)
+# peso_azar:         suerte
+# nota_aprobatoria:  nota minima para aprobar (sobre 20)
+
+peso_conocimiento  75
+peso_estado        10
+peso_azar          15
+nota_aprobatoria   10
