@@ -25,6 +25,7 @@ private:
     void dibujar();
     void crearVentana();
     void ajustarVista();
+    void iniciarPartida();   // S3-8: lo llama el boton "Jugar" del menu
 
 
 
