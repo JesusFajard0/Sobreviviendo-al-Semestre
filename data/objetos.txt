@@ -3,13 +3,15 @@
 # Cada objeto es una zona donde el jugador, parado sobre ella, ve "[E]" y puede
 # hacer la actividad (id de data/actividades.txt). La vista mide 640 x 360.
 # Mientras no haya arte, se dibuja como un rectangulo con el nombre encima.
+#
+# Caso especial: "cama" no es una actividad de actividades.txt. El codigo la
+# traduce segun la hora: manana/tarde = siesta, noche/madrugada = dormir.
 
-# --- Apartamento (fila de arriba) ---
-objeto | apartamento | dormir | 103 | 122 | 27 | 51
-objeto | apartamento | siesta | 38 | 170 | 51 | 14
-objeto | apartamento | ducharse        | 240 |  50 | 80 | 28
-objeto | apartamento | lavar_platos    | 350 |  50 | 80 | 28
-objeto | apartamento | comer_casa      | 460 |  50 | 80 | 28
+# --- Apartamento (fila de arriba, debajo de la pared de colision) ---
+objeto | apartamento | cama            |  60 | 130 | 70 | 54
+objeto | apartamento | ducharse        | 240 | 104 | 80 | 28
+objeto | apartamento | lavar_platos    | 350 | 104 | 80 | 28
+objeto | apartamento | comer_casa      | 460 | 104 | 80 | 28
 
 # --- Apartamento (fila de abajo) ---
 objeto | apartamento | estudiar_casa   |  20 | 300 | 80 | 28
@@ -18,7 +20,7 @@ objeto | apartamento | computadora     | 240 | 300 | 80 | 28
 objeto | apartamento | leer_manual     | 350 | 300 | 80 | 28
 
 # --- Universidad ---
-objeto | biblioteca  | estudiar_biblio | 250 |  90 | 140 | 50
+objeto | biblioteca  | estudiar_biblio | 250 | 190 | 140 | 50
 objeto | cafeteria   | comer_cafeteria | 250 |  90 | 140 | 50
 
 # --- Salones de Clase ---
