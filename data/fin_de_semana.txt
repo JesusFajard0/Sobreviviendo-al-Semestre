@@ -10,4 +10,4 @@
 
 rumba | Rumba | -25 | 0 | 5 | -10 | 30 | -30 | 0 | 1 | Este fin de semana te fuiste de rumba y la pasaste genial, pero amaneces cansado y con menos dinero.
 aseo | Aseo | -15 | 0 | 10 | -5 | 0 | 0 | 60 | 1 | Este fin de semana lavaste los platos, limpiaste y ordenaste todo el apartamento. Cansa, pero se siente bien.
-estudio | Estudio | -15 | 12 | -5 | 15 | -10 | 0 | 0 | 1 | Este fin de semana te encerraste a estudiar y adelantaste materia, aunque llegas al lunes con más estrés.
+estudio | Estudio | -15 |  5 | -5 | 15 | -10 | 0 | 0 | 1 | Este fin de semana te encerraste a estudiar y adelantaste materia, aunque llegas al lunes con más estrés.

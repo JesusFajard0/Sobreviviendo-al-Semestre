@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <functional>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -16,6 +17,8 @@
 #include "world/LectorNpcs.hpp"
 #include "dialogue/DialogoState.hpp"
 #include "world/ClaseState.hpp"
+#include "world/ExamenState.hpp"
+#include "world/FinDeSemanaState.hpp"
 #include "world/MenuDestinos.hpp"
 
 
@@ -90,6 +93,14 @@ EstadoExploracion::EstadoExploracion(StateStack* pila,
       textoMensaje_(fuente(), "", TAM_TEXTO_MENSAJE)   // en SFML 3 el texto necesita fuente al crearse
 {
     hud_.iniciar(recursos_);
+
+    // S2-5: efectos del fin de semana (data/fin_de_semana.txt)
+    if (!finDeSemana_.cargarDesdeArchivo("data/fin_de_semana.txt"))
+        std::cerr << "[EstadoExploracion] Hubo problemas al cargar data/fin_de_semana.txt.\n";
+
+    // S2-6: pesos de la nota del examen (data/notas.txt)
+    if (!partida_.notas.cargarDesdeArchivo("data/notas.txt"))
+        std::cerr << "[EstadoExploracion] Hubo problemas al cargar data/notas.txt.\n";
 
     // Configuración visual de la caja de texto (opaca para que se lea bien).
     fondoMensaje_.setFillColor(sf::Color(20, 20, 30, 255));
@@ -226,19 +237,24 @@ void EstadoExploracion::crearObjetos(const std::string& idEscena)
             }
         }
 
+        // "cama" no es una actividad de actividades.txt: usarActividad la
+        // traduce a siesta o dormir según la hora.
+        const bool esCama = (d.actividad == "cama");
         const DatosActividad* actividad = partida_.actividades.buscar(d.actividad);
 
-        if (actividad == nullptr)
+        if (actividad == nullptr && !esCama)
         {
             std::cerr << "[EstadoExploracion] Objeto con actividad desconocida: "
                       << d.actividad << '\n';
             continue;
         }
 
+        const std::string etiqueta = esCama ? "Cama" : actividad->nombre;
+
         objetos_.push_back(std::make_unique<ObjetoActividad>(
             crearRect(d.x, d.y, d.ancho, d.alto),
             d.actividad,
-            actividad->nombre,
+            etiqueta,
             [this](const std::string& id) { usarActividad(id); }
         ));
     } // <--- El bucle for termina aquí afuera
@@ -272,8 +288,18 @@ void EstadoExploracion::crearObjetos(const std::string& idEscena)
 // ---------------------------------------------------------------
 // Actividades y mensajes
 // ---------------------------------------------------------------
-void EstadoExploracion::usarActividad(const std::string& idActividad)
+void EstadoExploracion::usarActividad(const std::string& idSolicitada)
 {
+    std::string idActividad = idSolicitada;
+
+    // La cama es un solo objeto: según la hora es siesta o dormir.
+    if (idActividad == "cama")
+    {
+        const Bloque b = partida_.tiempo.bloque();
+        idActividad = (b == Bloque::Noche || b == Bloque::Madrugada)
+                          ? "dormir" : "siesta";
+    }
+
     // --- LECTURA DEL MANUAL DEL ESTUDIANTE (Inicia la Pág. 1, continúa en handleEvent) ---
     if (idActividad == "leer_manual")
     {
@@ -330,6 +356,25 @@ void EstadoExploracion::usarActividad(const std::string& idActividad)
     }
     // -------------------------------------
 
+    // --- S2-6: EXAMEN ---
+    // La nota se calcula ANTES de aplicar los efectos de la actividad (que gastan
+    // energia y suben el estres): asi el examen no se castiga a si mismo.
+    const Materia materiaExamen = partida_.materiaActiva();
+    std::optional<ResultadoExamen> examen;
+    if (idActividad == "presentar_examen")
+    {
+        if (partida_.notas.tieneNota(materiaExamen))
+        {
+            mostrarMensaje(
+                "== EXAMEN ==\n\n"
+                "Este examen ya no se puede presentar.\n\n"
+                "(Presiona ENTER)"
+            );
+            return;
+        }
+        examen = partida_.notas.calcular(partida_.estadisticas, materiaExamen);
+    }
+
     const ResultadoActividad r = partida_.actividades.ejecutar(
         idActividad,
         partida_.estadisticas,
@@ -357,6 +402,20 @@ void EstadoExploracion::usarActividad(const std::string& idActividad)
         return;
     }
 
+    // S2-5: orden del apartamento y discoteca del viernes
+    finDeSemana_.registrarActividad(idActividad);
+
+    // S2-6: se guarda la nota del examen (ya se hizo la actividad)
+    if (examen.has_value())
+    {
+        partida_.notas.registrar(*examen);
+        std::cout << "[Examen] " << Estadisticas::nombre(materiaExamen)
+                  << ": nota " << examen->nota << "/" << Notas::NOTA_MAXIMA
+                  << " (conocimiento " << std::lround(examen->conocimiento)
+                  << ", estado " << std::lround(examen->estado)
+                  << ", azar " << std::lround(examen->azar) << ")\n";
+    }
+
     const DatosActividad* actividad = partida_.actividades.buscar(idActividad);
     const std::string nombre = (actividad != nullptr) ? actividad->nombre : idActividad;
 
@@ -374,6 +433,10 @@ void EstadoExploracion::usarActividad(const std::string& idActividad)
     if (r.cambioConocimiento != 0.f)
         contenido += "Conocimiento: " + conSigno(r.cambioConocimiento) + "\n";
 
+    if (examen.has_value())
+        contenido += "Nota del examen: " + std::to_string(examen->nota) + " / " +
+                     std::to_string(Notas::NOTA_MAXIMA) + "\n";
+
     // --- S2-3: contador de asistencias ---
     const bool fueAClase = (idActividad == "asistir_clase");
     if (fueAClase)
@@ -390,6 +453,7 @@ void EstadoExploracion::usarActividad(const std::string& idActividad)
 
     if (r.evento == EventoTiempo::NuevoDia || r.evento == EventoTiempo::FinDeSemana)
     {
+        finDeSemana_.cerrarDia();   // S2-5
         const ResultadoAmanecer noche = colapso_.alAmanecer(estadisticas_);
         if (!noche.durmio)
             contenido += std::string("\n") + noche.mensaje + "\n";
@@ -426,6 +490,11 @@ void EstadoExploracion::usarActividad(const std::string& idActividad)
     if (fueAClase)
         m_stack->pushState(std::make_unique<ClaseState>(
             m_stack, fuente(), Estadisticas::nombre(partida_.materiaActiva())));
+
+    // S2-6: pantalla con la nota. Se apila encima y, al cerrarla, se ve la caja
+    // con los efectos del examen.
+    if (examen.has_value())
+        m_stack->pushState(std::make_unique<ExamenState>(m_stack, recursos_, *examen));
 }
 void EstadoExploracion::mostrarMensaje(const std::string& texto)
 {
@@ -487,16 +556,21 @@ void EstadoExploracion::revisarEventosTiempo()
         partida_.actividades.reiniciarContadores(); 
         const float mesada = GestorActividades::aplicarMesada(estadisticas_);
 
-        std::cout << "[Tiempo] Fin de semana: empieza la semana "
-                  << tiempo_.semana() << ".\n";
+        // S2-5: sorteo ponderado. Va DESPUES de terminarFinDeSemana(): asi la semana
+        // y partida_.materiaActiva() ya son las de la semana que empieza, y estudiar
+        // el fin de semana cuenta para la materia nueva si hubo cambio de fase.
+        ResultadoFinDeSemana fin = finDeSemana_.resolver(
+            estadisticas_, tiempo_.semana(), partida_.materiaActiva());
 
-        mostrarMensaje(
-            "== Fin de semana ==\n\n"
-            "Terminó la semana " + std::to_string(semanaQueTermina) + ".\n"
-            "Tus padres te envían la mesada: " + conSigno(mesada) + "\n\n"
-            "Empieza la semana " + std::to_string(tiempo_.semana()) + ".\n\n"
-            "(Presiona ENTER)"
-        );
+        // Datos extra para la pantalla del fin de semana.
+        fin.mesada      = mesada;
+        fin.semanaNueva = tiempo_.semana();
+
+        std::cout << "[Tiempo] Fin de semana (" << fin.nombre << "): empieza la semana "
+                  << tiempo_.semana() << " (termino la " << semanaQueTermina << ").\n";
+
+        // Pantalla propia: se apila encima y, al pulsar ENTER, vuelve la exploracion.
+        m_stack->pushState(std::make_unique<FinDeSemanaState>(m_stack, recursos_, fin));
         return;
     }
 
@@ -506,9 +580,24 @@ void EstadoExploracion::revisarEventosTiempo()
 
         std::cout << "[Tiempo] Fin del semestre.\n";
 
+        // S2-6: las tres notas y el promedio (el resumen completo llega con S3-5).
+        std::string notasTexto;
+        for (int i = 0; i < static_cast<int>(Materia::Cantidad); ++i)
+        {
+            const Materia m = static_cast<Materia>(i);
+            notasTexto += std::string(Estadisticas::nombre(m)) + ": " +
+                          std::to_string(partida_.notas.nota(m)) + " / " +
+                          std::to_string(Notas::NOTA_MAXIMA) +
+                          (partida_.notas.estado(m) == EstadoExamen::NoPresento ? "  (no presentó)" : "") +
+                          "\n";
+        }
+        notasTexto += "Promedio: " + std::to_string(partida_.notas.promedio()) + " / " +
+                      std::to_string(Notas::NOTA_MAXIMA) + "\n";
+
         mostrarMensaje(
             "== Fin del semestre ==\n\n"
-            "Terminaste las " + std::to_string(Tiempo::SEMANAS) + " semanas.\n"
+            "Terminaste las " + std::to_string(Tiempo::SEMANAS) + " semanas.\n\n" +
+            notasTexto + "\n"
             "(Aquí irán la animación final\n"
             "y el resumen de finales.)\n\n"
             "(Presiona ENTER)"
@@ -556,10 +645,12 @@ void EstadoExploracion::revisarEventosTiempo()
         if (partida_.actividades.usosHoy("presentar_examen") == 0)
         {
             avisoOlvidoExamenMostradoHoy = true;
+            partida_.notas.registrarNoPresento(examenMat.value());   // S2-6: nota 0
             mostrarMensaje(
                 "== EXAMEN NO PRESENTADO ==\n\n"
                 "Se pasó el horario del parcial.\n"
-                "¡Se te olvidó el examen o no fuiste a tiempo!\n\n"
+                "¡Se te olvidó el examen o no fuiste a tiempo!\n"
+                "Tu nota en este examen es 0 / " + std::to_string(Notas::NOTA_MAXIMA) + ".\n\n"
                 "(Presiona ENTER)"
             );
             return;
@@ -1332,6 +1423,7 @@ void EstadoExploracion::revisarColapso()
 
         if (ev == EventoTiempo::NuevoDia || ev == EventoTiempo::FinDeSemana)
         {
+            finDeSemana_.cerrarDia();   // S2-5
             const ResultadoAmanecer noche = colapso_.alAmanecer(estadisticas_);
             if (!noche.durmio)
                 texto += std::string("\n") + noche.mensaje + "\n";
