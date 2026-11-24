@@ -9,11 +9,11 @@
 // ---------------------------------------------------------------
 
 Personaje::Personaje(const sf::Vector2f& posicionInicial)
-    : cuerpo_(sf::Vector2f(24.f, 36.f)),
-      hitbox_(sf::Vector2f(14.f, 8.f)),
+    : cuerpo_(sf::Vector2f(48.f, 72.f)),
+      hitbox_(sf::Vector2f(28.f, 16.f)),
       velocidad_(120.f)
 {
-    // Configuración visual del personaje.
+    // Configuración visual del personaje (solo se ve si no hay sprite).
     cuerpo_.setFillColor(sf::Color(59, 130, 246));
     cuerpo_.setPosition(posicionInicial);
 
@@ -24,9 +24,96 @@ Personaje::Personaje(const sf::Vector2f& posicionInicial)
 
     // La hitbox se centra horizontalmente en los pies.
     hitbox_.setPosition(sf::Vector2f(
-        posicionInicial.x + 5.f,
-        posicionInicial.y + 27.f
+        posicionInicial.x + 10.f,
+        posicionInicial.y + 54.f
     ));
+}
+
+// ---------------------------------------------------------------
+// Hoja de sprites
+// ---------------------------------------------------------------
+
+void Personaje::ponerHojaSprites(const sf::Texture& textura)
+{
+    const sf::Vector2u tam = textura.getSize();
+
+    cuadroAncho_ = static_cast<int>(tam.x) / COLUMNAS;
+    cuadroAlto_  = static_cast<int>(tam.y) / FILAS;
+
+    if (cuadroAncho_ <= 0 || cuadroAlto_ <= 0)
+    {
+        sprite_.reset();   // textura inválida: se sigue usando el rectángulo
+        return;
+    }
+
+    escalaSprite_ = ANCHO_LOGICO / static_cast<float>(cuadroAncho_);
+
+    sprite_.emplace(textura);
+    sprite_->setScale(sf::Vector2f(escalaSprite_, escalaSprite_));
+
+    cuadro_       = 0;
+    tiempoCuadro_ = 0.f;
+    direccion_    = Direccion::Abajo;
+    aplicarCuadro();
+}
+
+void Personaje::aplicarCuadro()
+{
+    if (!sprite_)
+        return;
+
+    // Mapeo corregido según la disposición de columnas de tu imagen:
+    // Columna 0: Frente (Abajo)
+    // Columna 1: Perfil Derecho
+    // Columna 2: Espalda (Arriba)
+    // Columna 3: Perfil Izquierdo
+    int columnaDireccion = 0;
+
+    switch (direccion_)
+    {
+        case Direccion::Abajo:     columnaDireccion = 0; break;
+        case Direccion::Derecha:   columnaDireccion = 1; break;
+        case Direccion::Arriba:    columnaDireccion = 2; break;
+        case Direccion::Izquierda: columnaDireccion = 3; break;
+    }
+
+    sprite_->setTextureRect(sf::IntRect(
+        sf::Vector2i(columnaDireccion * cuadroAncho_, cuadro_ * cuadroAlto_),
+        sf::Vector2i(cuadroAncho_, cuadroAlto_)
+    ));
+}
+
+void Personaje::animar(float dt, const sf::Vector2f& direccion, bool seMovio)
+{
+    if (!sprite_)
+        return;
+
+    // La dirección solo cambia cuando hay entrada: al soltar las teclas
+    // se queda mirando hacia donde iba. En diagonal gana el perfil.
+    if (direccion.x != 0.f)
+        direccion_ = (direccion.x < 0.f) ? Direccion::Izquierda : Direccion::Derecha;
+    else if (direccion.y != 0.f)
+        direccion_ = (direccion.y < 0.f) ? Direccion::Arriba : Direccion::Abajo;
+
+    if (seMovio)
+    {
+        tiempoCuadro_ += dt;
+        const float duracion = 1.f / CUADROS_POR_SEGUNDO;
+
+        while (tiempoCuadro_ >= duracion)
+        {
+            tiempoCuadro_ -= duracion;
+            cuadro_ = (cuadro_ + 1) % FILAS;
+        }
+    }
+    else
+    {
+        // Quieto (o empujando una pared): cuadro de reposo.
+        cuadro_       = 0;
+        tiempoCuadro_ = 0.f;
+    }
+
+    aplicarCuadro();
 }
 
 // ---------------------------------------------------------------
@@ -41,6 +128,8 @@ void Personaje::actualizar(
 {
     if (dt <= 0.f)
         return;
+
+    const sf::Vector2f posicionAntes = cuerpo_.getPosition();
 
     // -----------------------------------------------------------
     // 1. Normalizar la dirección
@@ -96,6 +185,15 @@ void Personaje::actualizar(
         cuerpo_.move(sf::Vector2f(0.f, desplazamientoY));
         hitbox_.move(sf::Vector2f(0.f, desplazamientoY));
     }
+
+    // -----------------------------------------------------------
+    // 5. Animación (solo camina si de verdad se movió)
+    // -----------------------------------------------------------
+
+    const sf::Vector2f posicionDespues = cuerpo_.getPosition();
+    const bool seMovio = (posicionDespues != posicionAntes);
+
+    animar(dt, direccion, seMovio);
 }
 
 // ---------------------------------------------------------------
@@ -155,9 +253,30 @@ bool Personaje::hayColisionEn(
 
 void Personaje::dibujar(sf::RenderTarget& destino) const
 {
-    destino.draw(cuerpo_);
+    if (sprite_)
+    {
+        // El sprite se apoya en los pies: su borde inferior coincide con el
+        // borde inferior del cuerpo y queda centrado en horizontal.
+        const sf::Vector2f pos = cuerpo_.getPosition();
+        const sf::Vector2f tam = cuerpo_.getSize();
 
-    // Se dibuja la hitbox para facilitar las pruebas.
+        const float ancho = static_cast<float>(cuadroAncho_) * escalaSprite_;
+        const float alto  = static_cast<float>(cuadroAlto_)  * escalaSprite_;
+
+        sf::Sprite dibujo = *sprite_;
+        dibujo.setPosition(sf::Vector2f(
+            std::round(pos.x + tam.x / 2.f - ancho / 2.f),
+            std::round(pos.y + tam.y - alto)));
+
+        destino.draw(dibujo);
+
+        if (hitboxVisible_)
+            destino.draw(hitbox_);
+        return;
+    }
+
+    // Sin hoja de sprites: rectángulo y hitbox.
+    destino.draw(cuerpo_);
     destino.draw(hitbox_);
 }
 
@@ -173,10 +292,10 @@ void Personaje::colocar(const sf::Vector2f& posicion)
 {
     cuerpo_.setPosition(posicion);
 
-    // Mismos desplazamientos que usa el constructor para los pies.
+    // Mismos desplazamientos ajustados para situar la hitbox en los pies.
     hitbox_.setPosition(sf::Vector2f(
-        posicion.x + 5.f,
-        posicion.y + 27.f
+        posicion.x + 10.f,
+        posicion.y + 54.f
     ));
 }
 

@@ -42,6 +42,11 @@ void Npc::interactuar()
         alHablar_(idDialogo_);
 }
 
+float Npc::yPies() const
+{
+    return posicionRect(cuerpo_).y + tamanoRect(cuerpo_).y;
+}
+
 void Npc::dibujar(sf::RenderWindow& ventana, const sf::Font& fuente) const
 {
     ventana.draw(forma_);
