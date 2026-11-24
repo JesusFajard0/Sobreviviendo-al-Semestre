@@ -27,6 +27,10 @@ public:
     const std::string& nombre() const { return nombre_; }
     const std::string& idDialogo() const { return idDialogo_; }
 
+    // S3-6: borde inferior del cuerpo (sus pies). Decide si el personaje
+    // pasa por delante o por detras del NPC.
+    float yPies() const;
+
 private:
     std::string nombre_;
     std::string idDialogo_;

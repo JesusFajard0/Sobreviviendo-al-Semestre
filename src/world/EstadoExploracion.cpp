@@ -16,6 +16,7 @@
 #include "world/LectorMuebles.hpp"
 #include "world/LectorNpcs.hpp"
 #include "dialogue/DialogoState.hpp"
+#include "world/AnimacionState.hpp"
 #include "world/ClaseState.hpp"
 #include "world/ExamenState.hpp"
 #include "world/FinDeSemanaState.hpp"
@@ -81,6 +82,42 @@ namespace
     }
 }
 
+namespace
+{
+    // S3-4: carga assets/animaciones/<prefijo>_1.png, _2.png... (las que existan).
+    // Si desde > 1, empieza en esa imagen. Devuelve una lista vacia si no hay
+    // ninguna: la animacion usa entonces el dibujo provisional de codigo.
+    std::vector<const sf::Texture*> cargarImagenesAnimacion(GestorRecursos& recursos,
+                                                            const std::string& prefijo,
+                                                            int desde = 1)
+    {
+        std::vector<const sf::Texture*> imagenes;
+
+        for (int i = desde; i <= 8; ++i)
+        {
+            const std::string nombre = prefijo + "_" + std::to_string(i);
+            const std::string clave  = "anim_" + nombre;
+            const std::string ruta   = "assets/animaciones/" + nombre + ".png";
+
+            if (recursos.obtenerTextura(clave) == nullptr)
+            {
+                if (!std::filesystem::exists(ruta))
+                    break;
+                recursos.cargarTextura(clave, ruta);
+            }
+
+            if (sf::Texture* t = recursos.obtenerTextura(clave))
+            {
+                t->setSmooth(true);   // se reducen de 1024 a 640: suavizado para que no brillen
+                imagenes.push_back(t);
+            }
+            else
+                break;
+        }
+        return imagenes;
+    }
+}
+
 EstadoExploracion::EstadoExploracion(StateStack* pila,
                                      GestorRecursos& recursos,
                                      Partida& partida)
@@ -93,6 +130,14 @@ EstadoExploracion::EstadoExploracion(StateStack* pila,
       textoMensaje_(fuente(), "", TAM_TEXTO_MENSAJE)   // en SFML 3 el texto necesita fuente al crearse
 {
     hud_.iniciar(recursos_);
+
+    // S3-6: hoja de sprites del personaje (opcional)
+    const std::string rutaPersonaje = "assets/sprites/personaje.png";
+    if (std::filesystem::exists(rutaPersonaje))
+        recursos_.cargarTextura("personaje", rutaPersonaje);
+
+    if (const sf::Texture* texturaPersonaje = recursos_.obtenerTextura("personaje"))
+        personaje_.ponerHojaSprites(*texturaPersonaje);
 
     // S2-5: efectos del fin de semana (data/fin_de_semana.txt)
     if (!finDeSemana_.cargarDesdeArchivo("data/fin_de_semana.txt"))
@@ -459,10 +504,6 @@ void EstadoExploracion::usarActividad(const std::string& idSolicitada)
             contenido += std::string("\n") + noche.mensaje + "\n";
     }
 
-    // La discoteca todavía no tiene escena: por ahora es solo este cuadro.
-    if (idActividad == "discoteca")
-        contenido += "\n[ Aquí irá la animación de la discoteca ]\n";
-
     contenido += "\n(Presiona ENTER)";
 
     // Registro en consola (útil para depurar).
@@ -485,16 +526,49 @@ void EstadoExploracion::usarActividad(const std::string& idSolicitada)
 
     mostrarMensaje(contenido);
 
-    // S2-3: animacion provisional de clase. Se apila encima y, al terminar,
-    // se ve la caja con los resultados.
-    if (fueAClase)
-        m_stack->pushState(std::make_unique<ClaseState>(
-            m_stack, fuente(), Estadisticas::nombre(partida_.materiaActiva())));
+    // S3-4: animaciones. Se apilan encima y, al terminar, se ve lo que haya
+    // debajo (la caja con los resultados o la pantalla de la nota).
+    const sf::Texture* hojaPersonaje = recursos_.obtenerTextura("personaje");
 
-    // S2-6: pantalla con la nota. Se apila encima y, al cerrarla, se ve la caja
-    // con los efectos del examen.
+    if (fueAClase)
+        m_stack->pushState(std::make_unique<AnimacionState>(
+            m_stack, fuente(), hojaPersonaje, TipoAnimacion::Clase,
+            Estadisticas::nombre(partida_.materiaActiva()),
+            cargarImagenesAnimacion(recursos_, "clase")));
+
+    if (idActividad == "dormir")
+        m_stack->pushState(std::make_unique<AnimacionState>(
+            m_stack, fuente(), hojaPersonaje, TipoAnimacion::Dormir, "",
+            cargarImagenesAnimacion(recursos_, "dormir")));
+
+    // La siesta usa solo la imagen de luz de dia (dormir_2).
+    if (idActividad == "siesta")
+        m_stack->pushState(std::make_unique<AnimacionState>(
+            m_stack, fuente(), hojaPersonaje, TipoAnimacion::Siesta, "",
+            cargarImagenesAnimacion(recursos_, "dormir", 2)));
+
+    if (idActividad == "discoteca")
+        m_stack->pushState(std::make_unique<AnimacionState>(
+            m_stack, fuente(), hojaPersonaje, TipoAnimacion::Discoteca, "",
+            cargarImagenesAnimacion(recursos_, "disco")));
+
+    // S2-6: pantalla con la nota. Va debajo de la animacion del examen: primero
+    // se ve la animacion y, al terminar, la nota; al cerrarla, la caja de efectos.
     if (examen.has_value())
+    {
         m_stack->pushState(std::make_unique<ExamenState>(m_stack, recursos_, *examen));
+        const std::string textoNota =
+            "Nota: " + std::to_string(examen->nota) + " / " + std::to_string(Notas::NOTA_MAXIMA) +
+            (examen->aprobado ? "  APROBADO" : "  REPROBADO");
+        const sf::Color colorNota = examen->aprobado ? sf::Color(90, 220, 130)
+                                                     : sf::Color(235, 90, 90);
+
+        m_stack->pushState(std::make_unique<AnimacionState>(
+            m_stack, fuente(), hojaPersonaje, TipoAnimacion::Examen,
+            Estadisticas::nombre(materiaExamen),
+            cargarImagenesAnimacion(recursos_, "examen"),
+            textoNota, colorNota));
+    }
 }
 void EstadoExploracion::mostrarMensaje(const std::string& texto)
 {
@@ -1301,9 +1375,22 @@ void EstadoExploracion::draw(sf::RenderWindow& window)
             objeto->Interactuable::dibujar(window, fuente());  // solo el aviso [E]
     }
 
+    // S3-6: los NPCs con los pies mas arriba que el personaje van detras de el;
+    // los demas, delante (igual que los muebles).
     for (const std::unique_ptr<Npc>& npc : npcs_)   // S2-7
-        npc->dibujar(window, fuente());
+    {
+        if (npc->yPies() <= yPiesPersonaje)
+            npc->dibujar(window, fuente());
+    }
+
+    personaje_.ponerHitboxVisible(verColisiones_);
     personaje_.dibujar(window);
+
+    for (const std::unique_ptr<Npc>& npc : npcs_)
+    {
+        if (npc->yPies() > yPiesPersonaje)
+            npc->dibujar(window, fuente());
+    }
 
     for (const Mueble* m : ordenados)
     {
