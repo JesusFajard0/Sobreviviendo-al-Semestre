@@ -6,6 +6,7 @@
 #include <algorithm>  
 #include <cmath>
 
+#include "core/MenuState.hpp"
 #include "world/EstadoExploracion.hpp"
 #include "core/CompatSFML.hpp"
 
@@ -45,6 +46,21 @@ Juego::Juego()
     {
         std::cerr << "[Juego] Hubo problemas al cargar data/fases.txt.\n";
     }
+
+    // S3-8: el juego arranca en el menu de inicio; "Jugar" crea la partida.
+    static const sf::Font fuenteVacia;   // por si la fuente no cargo
+    const sf::Font* fuente = recursos_.obtenerFuente("principal");
+
+    pila_.pushState(std::make_unique<MenuState>(
+        &pila_,
+        (fuente != nullptr) ? *fuente : fuenteVacia,
+        [this]() { iniciarPartida(); },
+        [this]() { ventana_.close(); }
+    ));
+}
+
+void Juego::iniciarPartida()
+{
     pila_.pushState(
         std::make_unique<EstadoExploracion>(&pila_, recursos_, partida_)
     );

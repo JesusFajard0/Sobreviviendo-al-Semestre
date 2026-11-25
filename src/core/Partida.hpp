@@ -7,6 +7,7 @@
 #include "activities/GestorActividades.hpp"
 #include "systems/Estadisticas.hpp"
 #include "systems/Fases.hpp"
+#include "systems/Notas.hpp"
 #include "systems/Tiempo.hpp"
 
 struct Partida
@@ -14,6 +15,7 @@ struct Partida
     Partida();
 
     Estadisticas      estadisticas;
+    Notas             notas;        // S2-6: notas de los tres examenes
     Tiempo            tiempo;
     GestorActividades actividades;
 
