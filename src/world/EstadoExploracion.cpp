@@ -17,7 +17,6 @@
 #include "world/LectorNpcs.hpp"
 #include "dialogue/DialogoState.hpp"
 #include "world/AnimacionState.hpp"
-#include "world/BusState.hpp"
 #include "world/ClaseState.hpp"
 #include "world/ExamenState.hpp"
 #include "world/FinDeSemanaState.hpp"
@@ -254,48 +253,6 @@ void EstadoExploracion::cambiarEscena(const std::string& id)
     crearObjetos(id);
     crearMuebles(id);
     crearNpcs(id);   // S2-7
-}
-
-void EstadoExploracion::iniciarBus(const std::string& idDestino)
-{
-    const bool noche = (tiempo_.bloque() == Bloque::Noche ||
-                        tiempo_.bloque() == Bloque::Madrugada);
-
-    const std::vector<std::string> nombres = noche
-        ? std::vector<std::string>{"busnoche1", "busnoche2"}
-        : std::vector<std::string>{"busdia1", "busdia2"};
-
-    std::vector<const sf::Texture*> imagenes;
-    for (const std::string& n : nombres)
-    {
-        const std::string clave = "bus_" + n;
-        if (recursos_.obtenerTextura(clave) == nullptr)
-        {
-            recursos_.cargarTextura(clave, "assets/bus/" + n + ".png");
-        }
-        if (sf::Texture* t = recursos_.obtenerTextura(clave))
-        {
-            t->setSmooth(true);
-            imagenes.push_back(t);
-        }
-    }
-
-    // Sin imágenes (no cargaron): se viaja sin animación.
-    if (imagenes.empty())
-    {
-        if (!idDestino.empty())
-            cambiarEscena(idDestino);
-        return;
-    }
-
-    m_stack->pushState(std::make_unique<BusState>(
-        m_stack,
-        std::move(imagenes),
-        [this, idDestino]()
-        {
-            if (!idDestino.empty())
-                cambiarEscena(idDestino);
-        }));
 }
 
 void EstadoExploracion::crearObjetos(const std::string& idEscena)
@@ -595,6 +552,11 @@ void EstadoExploracion::usarActividad(const std::string& idSolicitada)
             m_stack, fuente(), hojaPersonaje, TipoAnimacion::Discoteca, "",
             cargarImagenesAnimacion(recursos_, "disco")));
 
+    if (idActividad == "ducharse")
+        m_stack->pushState(std::make_unique<AnimacionState>(
+            m_stack, fuente(), hojaPersonaje, TipoAnimacion::Duchar, "",
+            cargarImagenesAnimacion(recursos_, "duchar")));
+
     // S2-6: pantalla con la nota. Va debajo de la animacion del examen: primero
     // se ve la animacion y, al terminar, la nota; al cerrarla, la caja de efectos.
     if (examen.has_value())
@@ -807,7 +769,6 @@ void EstadoExploracion::revisarEventosTiempo()
             const std::string nombre = (datos != nullptr) ? datos->nombre : idActual;
 
             cambiarEscena(mapa_.raiz());
-            iniciarBus("");   // viaje de regreso (escena ya cambiada)
 
             std::cout << "[Tiempo] " << nombre << " cerro: vuelves al apartamento.\n";
 
@@ -858,16 +819,8 @@ void EstadoExploracion::abrirMenuDestinos()
         switch (mapa_.puedeIr(idActual, idDestino, partida_.faseSemestre()))
         {
         case ResultadoCambio::Ok:
-        {
-            const bool viajeBus =
-                (idActual == "apartamento" && idDestino == "universidad") ||
-                (idActual == "universidad" && idDestino == "apartamento");
-            if (viajeBus)
-                iniciarBus(idDestino);
-            else
-                cambiarEscena(idDestino);
+            cambiarEscena(idDestino);
             break;
-        }
 
         case ResultadoCambio::Animacion:
             // El id de la escena de animación coincide con el de su actividad
