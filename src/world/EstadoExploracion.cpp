@@ -15,6 +15,8 @@
 #include "world/LectorObjetos.hpp"
 #include "world/LectorMuebles.hpp"
 #include "world/LectorNpcs.hpp"
+#include "world/LectorRastros.hpp"
+#include "world/Rastros.hpp"
 #include "dialogue/DialogoState.hpp"
 #include "world/AnimacionState.hpp"
 #include "world/ClaseState.hpp"
@@ -204,6 +206,24 @@ EstadoExploracion::EstadoExploracion(StateStack* pila,
         }
     }
 
+    // S3-3: rastro de los salones y avisos de cambio de fase (data/rastros.txt).
+    if (!LectorRastros::cargarArchivo("data/rastros.txt", datosRastros_, mensajesFase_))
+    {
+        std::cerr << "[EstadoExploracion] Hubo problemas al cargar data/rastros.txt.\n";
+    }
+
+    for (const DatosRastro& d : datosRastros_)
+    {
+        if (mapa_.datos(d.escena) == nullptr)
+        {
+            std::cerr << "[EstadoExploracion] Rastro en escena inexistente: "
+                      << d.escena << '\n';
+        }
+    }
+
+    rastroVisto_.assign(datosRastros_.size(), 0);
+    faseVista_ = partida_.faseSemestre();
+
     cambiarEscena(mapa_.raiz());
 }
 
@@ -253,6 +273,7 @@ void EstadoExploracion::cambiarEscena(const std::string& id)
     crearObjetos(id);
     crearMuebles(id);
     crearNpcs(id);   // S2-7
+    crearRastros(id);   // S3-3
 }
 
 void EstadoExploracion::crearObjetos(const std::string& idEscena)
@@ -1295,6 +1316,16 @@ void EstadoExploracion::handleEvent(const sf::Event& event)
             return;
         }
     }
+
+    // S3-3: leer una pizarra u objeto del rastro.
+    for (const std::unique_ptr<ObjetoRastro>& rastro : rastros_)
+    {
+        if (rastro->puedeInteractuar(personaje_.hitbox()))
+        {
+            rastro->interactuar();
+            return;
+        }
+    }
 }
 void EstadoExploracion::update(float dt)
 {
@@ -1306,6 +1337,12 @@ void EstadoExploracion::update(float dt)
 
     // S2-4: colapso por estadisticas extremas (espera a que se cierre la caja).
     revisarColapso();
+
+    // S3-3: cambio de fase (salones nuevos) y rastro de los salones.
+    revisarFaseYRastros();
+
+    if (ambiente_)   // el confeti y la lluvia siguen aunque haya una caja abierta
+        ambiente_->actualizar(dt);
 
     // Con la caja abierta el personaje se congela.
     if (mostrandoMensaje_ || !escena_)
@@ -1342,6 +1379,9 @@ void EstadoExploracion::update(float dt)
 
     for (const std::unique_ptr<Npc>& npc : npcs_)   // S2-7
         npc->puedeInteractuar(personaje_.hitbox());
+
+    for (const std::unique_ptr<ObjetoRastro>& rastro : rastros_)   // S3-3
+        rastro->puedeInteractuar(personaje_.hitbox());
 }
 
 void EstadoExploracion::draw(sf::RenderWindow& window)
@@ -1387,6 +1427,9 @@ void EstadoExploracion::draw(sf::RenderWindow& window)
         if (npc->yPies() <= yPiesPersonaje)
             npc->dibujar(window, fuente());
     }
+
+    for (const std::unique_ptr<ObjetoRastro>& rastro : rastros_)   // S3-3
+        rastro->dibujar(window, fuente());
 
     personaje_.ponerHitboxVisible(verColisiones_);
     personaje_.dibujar(window);
@@ -1435,6 +1478,9 @@ void EstadoExploracion::draw(sf::RenderWindow& window)
         previa.setOutlineThickness(1.f);
         window.draw(previa);
     }
+
+    if (ambiente_)   // S3-3: tono y particulas del salon, debajo del HUD
+        ambiente_->dibujar(window);
 
     hud_.dibujar(window);
 
@@ -1564,4 +1610,157 @@ void EstadoExploracion::hablarCon(const std::string& idDialogo)
 
     // Se apila encima: mientras dura, la exploracion no recibe teclas.
     m_stack->pushState(std::make_unique<DialogoState>(m_stack, fuente(), *lineas));
+}
+
+// ---------------------------------------------------------------
+// S3-3: rastro de los salones y cambio de fase
+// ---------------------------------------------------------------
+namespace
+{
+    const char* nombreMateriaConTilde(Materia m)
+    {
+        switch (m)
+        {
+            case Materia::Calculo:      return "Cálculo";
+            case Materia::Fisica:       return "Física";
+            case Materia::Programacion: return "Programación";
+            default:                    return "?";
+        }
+    }
+}
+
+// Valores que se pueden usar como {clave} en data/rastros.txt.
+std::map<std::string, std::string> EstadoExploracion::valoresPlantilla(Materia materia) const
+{
+    const Notas& notas = partida_.notas;
+
+    return {
+        {"materia",           nombreMateriaConTilde(materia)},
+        {"nota",              std::to_string(notas.nota(materia))},
+        {"promedio",          std::to_string(notas.promedio())},
+        {"asistencias",       std::to_string(asistencia_.asistencias(materia))},
+        {"faltas",            std::to_string(asistencia_.faltas(materia))},
+        {"nota_calculo",      std::to_string(notas.nota(Materia::Calculo))},
+        {"nota_fisica",       std::to_string(notas.nota(Materia::Fisica))},
+        {"nota_programacion", std::to_string(notas.nota(Materia::Programacion))}
+    };
+}
+
+// El rastro aparece segun lo que paso en el examen de su materia.
+bool EstadoExploracion::rastroActivo(const DatosRastro& d) const
+{
+    return cumpleCondicion(d.condicion,
+                           partida_.notas.estado(d.materia),
+                           partida_.notas.aprobada(d.materia));
+}
+
+// Pizarras, objetos y ambiente del rastro de la escena (los mensajes salen
+// solos al entrar, ver revisarFaseYRastros).
+void EstadoExploracion::crearRastros(const std::string& idEscena)
+{
+    rastros_.clear();
+    ambiente_.reset();
+
+    for (const DatosRastro& d : datosRastros_)
+    {
+        if (d.escena != idEscena || d.tipo == TipoRastro::Mensaje || !rastroActivo(d))
+            continue;
+
+        // El ambiente cubre todo el salon: no es un objeto con el que hablar.
+        if (d.tipo == TipoRastro::Ambiente)
+        {
+            ambiente_ = std::make_unique<AmbienteRastro>(d.estilo);
+            continue;
+        }
+
+        const std::map<std::string, std::string> valores = valoresPlantilla(d.materia);
+
+        rastros_.push_back(std::make_unique<ObjetoRastro>(
+            crearRect(d.x, d.y, d.ancho, d.alto),
+            d.tipo,
+            d.estilo,
+            rellenarPlantilla(d.nombre, valores),
+            rellenarPlantilla(d.texto, valores),
+            [this](const std::string& texto)
+            {
+                mostrarMensaje(texto + "\n\n(Presiona ENTER)");
+            }
+        ));
+    }
+}
+
+void EstadoExploracion::revisarFaseYRastros()
+{
+    // Con una caja abierta se espera a que el jugador la cierre.
+    if (mostrandoMensaje_ || !escena_)
+        return;
+
+    // 1) Si cambio alguna nota (se presento o se paso un examen), el rastro de
+    //    la escena actual puede ser otro: se vuelve a armar.
+    std::array<int, static_cast<int>(Materia::Cantidad)> huella{};
+    for (int i = 0; i < static_cast<int>(Materia::Cantidad); ++i)
+    {
+        const Materia m = static_cast<Materia>(i);
+        huella[i] = static_cast<int>(partida_.notas.estado(m)) * 100 + partida_.notas.nota(m);
+    }
+
+    if (huella != huellaNotas_)
+    {
+        huellaNotas_ = huella;
+        crearRastros(escena_->id());
+    }
+
+    // 2) Cambio de fase: se avisa que se desbloquearon salones. Los salones se
+    //    abren solos (faseMinima en data/escenas.txt); aqui solo se avisa.
+    const int fase = partida_.faseSemestre();
+    if (fase != faseVista_)
+    {
+        const int anterior = faseVista_;
+        faseVista_ = fase;
+
+        std::string texto;
+        for (const MensajeFase& m : mensajesFase_)
+        {
+            if (m.fase <= anterior || m.fase > fase)
+                continue;
+
+            if (!texto.empty())
+                texto += "\n\n";
+            texto += rellenarPlantilla(m.texto, valoresPlantilla(partida_.materiaActiva()));
+        }
+
+        if (!texto.empty())
+        {
+            std::cout << "[Fase] Empieza la fase " << fase << ".\n";
+            mostrarMensaje(texto + "\n\n(Presiona ENTER)");
+            return;
+        }
+    }
+
+    // 3) Mensajes de entrada: salen una sola vez, la primera vez que se entra
+    //    a un salon con ese rastro.
+    const std::string idActual = escena_->id();
+    if (idActual == escenaRevisada_)
+        return;
+
+    escenaRevisada_ = idActual;
+
+    std::string texto;
+    for (std::size_t i = 0; i < datosRastros_.size(); ++i)
+    {
+        const DatosRastro& d = datosRastros_[i];
+
+        if (d.escena != idActual || d.tipo != TipoRastro::Mensaje ||
+            rastroVisto_[i] != 0 || !rastroActivo(d))
+            continue;
+
+        rastroVisto_[i] = 1;
+
+        if (!texto.empty())
+            texto += "\n\n";
+        texto += rellenarPlantilla(d.texto, valoresPlantilla(d.materia));
+    }
+
+    if (!texto.empty())
+        mostrarMensaje(texto + "\n\n(Presiona ENTER)");
 }
