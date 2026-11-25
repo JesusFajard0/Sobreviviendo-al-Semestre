@@ -72,6 +72,7 @@ float AnimacionState::duracion() const
     case TipoAnimacion::Discoteca: return 3.6f;
     case TipoAnimacion::Dormir:    return 3.8f;
     case TipoAnimacion::Siesta:    return 2.4f;
+    case TipoAnimacion::Duchar:    return 3.2f;
     }
     return 3.f;
 }
@@ -238,6 +239,7 @@ void AnimacionState::draw(sf::RenderWindow& window)
     case TipoAnimacion::Discoteca: dibujarDiscoteca(window);      break;
     case TipoAnimacion::Dormir:    dibujarDormir(window, true);   break;
     case TipoAnimacion::Siesta:    dibujarDormir(window, false);  break;
+    case TipoAnimacion::Duchar:    dibujarDuchar(window);         break;
     }
 
     dibujarTextoFinal(window);
@@ -399,6 +401,32 @@ void AnimacionState::dibujarConImagenes(sf::RenderWindow& w)
         if (noche)
             r = (amanecer > 0.4f) ? "Amanece..." : "Durmiendo...";
         rotulo(w, r);
+        break;
+    }
+
+    case TipoAnimacion::Duchar:
+    {
+        constexpr float POR_POSE = 1.6f;
+        constexpr float TRAMO    = 0.35f;
+
+        const float pos  = t_ / POR_POSE;
+        const int   i    = static_cast<int>(pos) % n;
+        const int   sig  = (i + 1) % n;
+        const float frac = pos - std::floor(pos);
+        const float fund = (n > 1)
+            ? limitar01((frac - (1.f - TRAMO / POR_POSE)) / (TRAMO / POR_POSE))
+            : 0.f;
+
+        const float respiro = 0.006f * std::sin(t_ * 2.8f);
+        const float zoom    = 1.f + 0.04f * p + respiro;
+
+        imagen(w, *imagenes_[i], 1.f, zoom);
+        if (fund > 0.f)
+            imagen(w, *imagenes_[sig], fund, zoom);
+
+        const int puntos = (static_cast<int>(t_ * 2.5f) % 3) + 1;
+        const std::string suspensivos(static_cast<std::size_t>(puntos), '.');
+        rotulo(w, "Duchándose" + suspensivos);
         break;
     }
     }
@@ -694,4 +722,24 @@ void AnimacionState::dibujarDormir(sf::RenderWindow& w, bool noche)
     if (noche)
         rotulo = (amanecer > 0.4f) ? "Amanece..." : "Durmiendo...";
     texto(w, rotulo, 14, 320.f, 316.f, BLANCO);
+}
+
+// ---------------------------------------------------------------
+// Duchar: respaldo sencillo si no hay imagenes en assets/animaciones/
+// ---------------------------------------------------------------
+
+void AnimacionState::dibujarDuchar(sf::RenderWindow& w)
+{
+    rect(w, 0.f, 0.f, ANCHO, ALTO, sf::Color(225, 220, 215));
+    rect(w, 0.f, 240.f, ANCHO, 120.f, sf::Color(90, 125, 165));
+    rect(w, 170.f, 160.f, 300.f, 95.f, sf::Color(238, 242, 248));
+    rect(w, 176.f, 152.f, 288.f, 24.f, sf::Color(255, 255, 255, 220));
+
+    if (hoja_ != nullptr)
+        personaje(w, 0, 0, 320.f, 225.f, 2.f);
+
+    const int puntos = (static_cast<int>(t_ * 2.5f) % 3) + 1;
+    const std::string suspensivos(static_cast<std::size_t>(puntos), '.');
+    texto(w, "Duchándose" + suspensivos, 14, 320.f, 316.f, BLANCO);
+    barra(w);
 }
