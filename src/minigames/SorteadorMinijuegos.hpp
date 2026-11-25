@@ -3,6 +3,7 @@
 #include <random>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 class SorteadorMinijuegos
@@ -10,15 +11,28 @@ class SorteadorMinijuegos
 public:
     SorteadorMinijuegos();
 
-    // Devuelve ID vacio si no hay candidatos. Si hay 2 o mas IDs
-    // distintos, excluye el ultimo sorteado para esta categoria.
-    std::string sortear(const std::string& categoria,
-                        const std::vector<std::string>& ids);
+    // Sorteo uniforme, utilizado por los minijuegos de computadora.
+    std::string sortear(
+        const std::string& categoria,
+        const std::vector<std::string>& ids);
 
-    // Util para una nueva partida, si decidimos reiniciar el historial.
-    void reiniciar() { ultimoPorCategoria_.clear(); }
+    // Sorteo ponderado.
+    // Un peso mayor aumenta la probabilidad de salir.
+    // Se omiten IDs vacios y pesos no positivos.
+    // Si existe una alternativa, no repite el ultimo ID.
+    std::string sortearPonderado(
+        const std::string& categoria,
+        const std::vector<std::pair<std::string, int>>& candidatos);
+
+    // Reinicia el historial de sorteos.
+    void reiniciar()
+    {
+        ultimoPorCategoria_.clear();
+    }
 
 private:
     std::mt19937 generador_;
-    std::unordered_map<std::string, std::string> ultimoPorCategoria_;
+
+    std::unordered_map<std::string, std::string>
+        ultimoPorCategoria_;
 };

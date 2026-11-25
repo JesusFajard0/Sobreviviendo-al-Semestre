@@ -1,8 +1,6 @@
 #include "minigames/SorteadorMinijuegos.hpp"
-#include <algorithm>
 
-
-#include <unordered_set>
+#include <unordered_map>
 
 SorteadorMinijuegos::SorteadorMinijuegos()
     : generador_(std::random_device{}())
@@ -10,32 +8,91 @@ SorteadorMinijuegos::SorteadorMinijuegos()
 }
 
 std::string SorteadorMinijuegos::sortear(
-    const std::string& categoria, const std::vector<std::string>& ids)
+    const std::string& categoria,
+    const std::vector<std::string>& ids)
 {
-    // Filtrar IDs vacios y duplicados para evitar sesgos de probabilidad.
-    std::vector<std::string> candidatos;
-    std::unordered_set<std::string> vistos;
-    for (const std::string& id : ids)
-        if (!id.empty() && vistos.insert(id).second)
-            candidatos.push_back(id);
+    // Convertir el sorteo normal en uno con pesos iguales.
+    std::vector<std::pair<std::string, int>> candidatos;
 
-    if (candidatos.empty())
-        return {};
+    candidatos.reserve(ids.size());
 
-    const auto anterior = ultimoPorCategoria_.find(categoria);
-    if (candidatos.size() > 1 && anterior != ultimoPorCategoria_.end())
+    for (const auto& id : ids)
     {
-        std::vector<std::string> alternativas;
-        for (const auto& id : candidatos)
-            if (id != anterior->second)
-                alternativas.push_back(id);
-        // Si no coincide ningun ID con el anterior, alternativas = candidatos.
-        if (!alternativas.empty())
-            candidatos = std::move(alternativas);
+        candidatos.emplace_back(id, 1);
     }
 
-    std::uniform_int_distribution<std::size_t> distribucion(0, candidatos.size()-1);
-    const std::string elegido = candidatos[distribucion(generador_)];
+    return sortearPonderado(categoria, candidatos);
+}
+
+std::string SorteadorMinijuegos::sortearPonderado(
+    const std::string& categoria,
+    const std::vector<std::pair<std::string, int>>& entradas)
+{
+    // Unificar IDs repetidos sumando sus pesos.
+    std::vector<std::string> ids;
+    std::vector<double> pesos;
+
+    std::unordered_map<std::string, std::size_t> posiciones;
+
+    for (const auto& entrada : entradas)
+    {
+        if (entrada.first.empty() || entrada.second <= 0)
+        {
+            continue;
+        }
+
+        const auto encontrado = posiciones.find(entrada.first);
+
+        if (encontrado == posiciones.end())
+        {
+            posiciones.emplace(entrada.first, ids.size());
+
+            ids.push_back(entrada.first);
+
+            pesos.push_back(
+                static_cast<double>(entrada.second)
+            );
+        }
+        else
+        {
+            pesos[encontrado->second] += entrada.second;
+        }
+    }
+
+    // Si no hay minijuegos validos, devolver ID vacio.
+    if (ids.empty())
+    {
+        return {};
+    }
+
+    // Evitar repetir el ultimo minijuego de esta categoria
+    // cuando exista mas de una alternativa.
+    const auto anterior = ultimoPorCategoria_.find(categoria);
+
+    if (ids.size() > 1 &&
+        anterior != ultimoPorCategoria_.end())
+    {
+        const auto repetido =
+            posiciones.find(anterior->second);
+
+        if (repetido != posiciones.end())
+        {
+            // Peso cero significa que no puede salir.
+            pesos[repetido->second] = 0.0;
+        }
+    }
+
+    // Seleccionar segun los pesos disponibles.
+    std::discrete_distribution<std::size_t> distribucion(
+        pesos.begin(),
+        pesos.end()
+    );
+
+    const std::string elegido =
+        ids[distribucion(generador_)];
+
+    // Recordar el resultado de esta categoria.
     ultimoPorCategoria_[categoria] = elegido;
+
     return elegido;
 }
