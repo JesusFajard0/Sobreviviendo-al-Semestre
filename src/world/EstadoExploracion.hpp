@@ -39,6 +39,7 @@ public:
 private:
     void cambiarEscena(const std::string& id);
     void abrirMenuDestinos();
+    void iniciarBus(const std::string& idDestino);
     void crearObjetos(const std::string& idEscena);
     void usarActividad(const std::string& idActividad);
     
