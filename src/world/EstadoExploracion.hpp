@@ -42,6 +42,8 @@ public:
     void draw(sf::RenderWindow& window) override;
 
 private:
+    float alfaEscena_  = 255.f;
+    float alfaMensaje_ = 0.f;
     void cambiarEscena(const std::string& id);
     void abrirMenuDestinos();
     void iniciarBus(const std::string& idDestino);

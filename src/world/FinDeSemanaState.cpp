@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <sstream>
 #include <string>
+#include <utility>
 
 #include "core/CompatSFML.hpp"
 #include "core/StateStack.hpp"
@@ -21,8 +22,8 @@ namespace
     constexpr float MARGEN    = 20.f;
     constexpr float TEXTO_X   = TARJETA_X + MARGEN;
 
-    constexpr std::size_t ANCHO_LINEA = 62;   // caracteres por linea
-    constexpr float VELOCIDAD_FUNDIDO = 600.f; // alfa por segundo
+    constexpr std::size_t ANCHO_LINEA = 62;
+    constexpr float VELOCIDAD_FUNDIDO = 600.f;
 
     const sf::Color COLOR_TITULO(255, 230, 90);
     const sf::Color COLOR_SEMANA(170, 170, 190);
@@ -30,14 +31,12 @@ namespace
     const sf::Color COLOR_EFECTOS(200, 225, 200);
     const sf::Color COLOR_INSTRUCCION(180, 180, 180);
 
-    // Mismo color con la transparencia multiplicada por el fundido (0 a 255).
     sf::Color conAlfa(sf::Color c, float alfa)
     {
         const float factor = std::clamp(alfa, 0.f, 255.f) / 255.f;
         return sf::Color(c.r, c.g, c.b, static_cast<std::uint8_t>(c.a * factor));
     }
 
-    // Parte un texto largo en lineas de como maximo 'ancho' caracteres.
     std::string envolver(const std::string& texto, std::size_t ancho)
     {
         std::istringstream palabras(texto);
@@ -55,7 +54,6 @@ namespace
         return resultado + linea;
     }
 
-    // "+15", "-5", "0"
     std::string conSigno(float valor)
     {
         const long entero = std::lround(valor);
@@ -77,10 +75,12 @@ namespace
 }
 
 FinDeSemanaState::FinDeSemanaState(StateStack* stack, GestorRecursos& recursos,
-                                   const ResultadoFinDeSemana& resultado)
+                                   const ResultadoFinDeSemana& resultado,
+                                   std::vector<const sf::Texture*> imagenes)
     : State(stack),
       m_recursos(recursos),
-      m_resultado(resultado)
+      m_resultado(resultado),
+      m_imagenes(std::move(imagenes))
 {
     switch (m_resultado.tipo)
     {
@@ -96,13 +96,110 @@ FinDeSemanaState::FinDeSemanaState(StateStack* stack, GestorRecursos& recursos,
     m_tarjeta.setPosition(sf::Vector2f(TARJETA_X, TARJETA_Y));
     m_tarjeta.setOutlineThickness(3.f);
 
+    // Barras/luces laterales suaves para el ambiente de Rumba
+    m_lucesRumba[0].setSize(sf::Vector2f(140.f, ALTO_VISTA));
+    m_lucesRumba[0].setPosition(sf::Vector2f(0.f, 0.f));
+
+    m_lucesRumba[1].setSize(sf::Vector2f(140.f, ALTO_VISTA));
+    m_lucesRumba[1].setPosition(sf::Vector2f(ANCHO_VISTA - 140.f, 0.f));
+
+    if (!m_imagenes.empty())
+    {
+        m_imagenA.setSize(sf::Vector2f(ANCHO_VISTA, ALTO_VISTA));
+        m_imagenB.setSize(sf::Vector2f(ANCHO_VISTA, ALTO_VISTA));
+
+        m_imagenA.setOrigin(sf::Vector2f(ANCHO_VISTA / 2.f, ALTO_VISTA / 2.f));
+        m_imagenB.setOrigin(sf::Vector2f(ANCHO_VISTA / 2.f, ALTO_VISTA / 2.f));
+
+        const float n = static_cast<float>(m_imagenes.size());
+        if (m_resultado.tipo == TipoFinDeSemana::Rumba)
+        {
+            m_bucle    = true;
+            m_periodo  = 1.05f;    // Más tranquilo y cómodo de ver
+            m_duracion = 4.2f;
+        }
+        else
+        {
+            m_bucle    = false;
+            m_periodo  = 1.5f;
+            m_duracion = n * m_periodo + 0.8f;
+        }
+
+        m_mostrandoTarjeta = false;
+        actualizarImagenes(0.f);
+        actualizarLucesRumba();
+    }
+
     configurarTextos();
     aplicarAlfa();
 }
 
+void FinDeSemanaState::aplicarTransformacion(sf::RectangleShape& shape, float avanceLocal, int indice)
+{
+    (void)avanceLocal;
+
+    // Zoom y paneo suave continuo
+    const float escalaBase = 1.02f + 0.03f * std::sin(m_tiempo * 0.7f + static_cast<float>(indice));
+    const float offsetX = std::cos(m_tiempo * 0.45f + static_cast<float>(indice)) * 3.5f;
+    const float offsetY = std::sin(m_tiempo * 0.55f + static_cast<float>(indice)) * 2.5f;
+
+    // Rebote suave y discreto solo en Rumba (sin sacudidas bruscas)
+    float reboteY = 0.f;
+    if (m_resultado.tipo == TipoFinDeSemana::Rumba)
+    {
+        reboteY = std::sin(m_tiempo * 3.5f) * -1.8f;
+    }
+
+    shape.setScale(sf::Vector2f(escalaBase, escalaBase));
+    shape.setPosition(sf::Vector2f(ANCHO_VISTA / 2.f + offsetX, ALTO_VISTA / 2.f + offsetY + reboteY));
+}
+
+void FinDeSemanaState::actualizarLucesRumba()
+{
+    if (m_resultado.tipo != TipoFinDeSemana::Rumba)
+        return;
+
+    const float pulso1 = 0.5f + 0.5f * std::sin(m_tiempo * 2.6f);
+    const float pulso2 = 0.5f + 0.5f * std::cos(m_tiempo * 2.6f);
+
+    const auto a1 = static_cast<std::uint8_t>(18.f + pulso1 * 26.f);
+    const auto a2 = static_cast<std::uint8_t>(18.f + pulso2 * 26.f);
+
+    m_lucesRumba[0].setFillColor(sf::Color(235, 65, 145, a1));
+    m_lucesRumba[1].setFillColor(sf::Color(70, 185, 255, a2));
+}
+
+void FinDeSemanaState::actualizarImagenes(float dt)
+{
+    (void)dt;
+    if (m_imagenes.empty())
+        return;
+
+    const int n = static_cast<int>(m_imagenes.size());
+    const int paso = static_cast<int>(m_tiempo / m_periodo);
+    const int actual    = m_bucle ? paso % n       : std::min(paso, n - 1);
+    const int siguiente = m_bucle ? (actual + 1) % n : std::min(actual + 1, n - 1);
+
+    const float u = std::fmod(m_tiempo, m_periodo) / m_periodo;
+
+    float mezcla = 0.f;
+    if (actual != siguiente)
+    {
+        mezcla = std::clamp((u - 0.6f) / 0.4f, 0.f, 1.f);
+    }
+    mezcla = mezcla * mezcla * (3.f - 2.f * mezcla);
+
+    m_imagenA.setTexture(m_imagenes[actual], true);
+    m_imagenA.setFillColor(sf::Color::White);
+    aplicarTransformacion(m_imagenA, u, actual);
+
+    m_imagenB.setTexture(m_imagenes[siguiente], true);
+    m_imagenB.setFillColor(sf::Color(255, 255, 255, static_cast<std::uint8_t>(255.f * mezcla)));
+    aplicarTransformacion(m_imagenB, u, siguiente);
+}
+
 void FinDeSemanaState::configurarTextos()
 {
-    // Si la fuente no cargo, la pantalla se ve sin texto pero no se cae.
     const sf::Font* fuente = m_recursos.obtenerFuente("principal");
     if (fuente == nullptr)
         fuente = m_recursos.obtenerFuente("arial");
@@ -111,13 +208,11 @@ void FinDeSemanaState::configurarTextos()
 
     float y = TARJETA_Y + 14.f;
 
-    // --- Titulo: que paso este fin de semana ---
     const std::string nombre = m_resultado.nombre.empty() ? "Fin de semana" : m_resultado.nombre;
     m_titulo.emplace(*fuente, textoUtf8("Fin de semana: " + nombre), 20);
     m_titulo->setPosition(sf::Vector2f(TEXTO_X, y));
     y += 28.f;
 
-    // --- Semana que termino / semana que empieza ---
     if (m_resultado.semanaNueva > 0)
     {
         m_semana.emplace(*fuente,
@@ -128,7 +223,6 @@ void FinDeSemanaState::configurarTextos()
         y += 26.f;
     }
 
-    // --- Lo que hizo el personaje ---
     const std::string descripcion = envolver(m_resultado.texto, ANCHO_LINEA);
     m_descripcion.emplace(*fuente, textoUtf8(descripcion), 16);
     m_descripcion->setPosition(sf::Vector2f(TEXTO_X, y));
@@ -136,7 +230,6 @@ void FinDeSemanaState::configurarTextos()
         1 + static_cast<int>(std::count(descripcion.begin(), descripcion.end(), '\n'));
     y += static_cast<float>(lineasDescripcion) * 20.f + 14.f;
 
-    // --- Efectos ---
     std::string cambios;
     for (int i = 0; i < static_cast<int>(Stat::Cantidad); ++i)
     {
@@ -157,7 +250,6 @@ void FinDeSemanaState::configurarTextos()
     m_efectos.emplace(*fuente, textoUtf8(efectos), 15);
     m_efectos->setPosition(sf::Vector2f(TEXTO_X, y));
 
-    // --- Instruccion (abajo de la tarjeta) ---
     const std::string cierre = (m_resultado.semanaNueva > 0)
         ? "Presiona ENTER para empezar la semana " + std::to_string(m_resultado.semanaNueva)
         : std::string("Presiona ENTER para continuar");
@@ -167,8 +259,8 @@ void FinDeSemanaState::configurarTextos()
 
 void FinDeSemanaState::aplicarAlfa()
 {
-    m_fondoOscuro.setFillColor(conAlfa(sf::Color(0, 0, 0, 200), m_alfa));
-    m_tarjeta.setFillColor(conAlfa(sf::Color(30, 30, 45, 245), m_alfa));
+    m_fondoOscuro.setFillColor(conAlfa(sf::Color(0, 0, 0, 150), m_alfa));
+    m_tarjeta.setFillColor(conAlfa(sf::Color(30, 30, 45, 225), m_alfa));
     m_tarjeta.setOutlineColor(conAlfa(m_colorBorde, m_alfa));
 
     if (m_titulo)       m_titulo->setFillColor(conAlfa(COLOR_TITULO, m_alfa));
@@ -188,6 +280,11 @@ void FinDeSemanaState::handleEvent(const sf::Event& event)
         tecla->code == sf::Keyboard::Key::Space ||
         tecla->code == sf::Keyboard::Key::E)
     {
+        if (!m_mostrandoTarjeta)
+        {
+            m_mostrandoTarjeta = true;
+            return;
+        }
         if (m_stack != nullptr)
             m_stack->popState();
     }
@@ -195,6 +292,17 @@ void FinDeSemanaState::handleEvent(const sf::Event& event)
 
 void FinDeSemanaState::update(float dt)
 {
+    m_tiempo += dt;
+    actualizarImagenes(dt);
+    actualizarLucesRumba();
+
+    if (!m_mostrandoTarjeta)
+    {
+        if (m_tiempo >= m_duracion)
+            m_mostrandoTarjeta = true;
+        return;
+    }
+
     if (m_alfa < 255.f)
     {
         m_alfa = std::min(255.f, m_alfa + dt * VELOCIDAD_FUNDIDO);
@@ -204,6 +312,21 @@ void FinDeSemanaState::update(float dt)
 
 void FinDeSemanaState::draw(sf::RenderWindow& window)
 {
+    if (!m_imagenes.empty())
+    {
+        window.draw(m_imagenA);
+        window.draw(m_imagenB);
+    }
+
+    if (m_resultado.tipo == TipoFinDeSemana::Rumba)
+    {
+        window.draw(m_lucesRumba[0]);
+        window.draw(m_lucesRumba[1]);
+    }
+
+    if (!m_mostrandoTarjeta)
+        return;
+
     window.draw(m_fondoOscuro);
     window.draw(m_tarjeta);
 

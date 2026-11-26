@@ -27,8 +27,6 @@ private:
     void ajustarVista();
     void iniciarPartida();   // S3-8: lo llama el boton "Jugar" del menu
 
-
-
     // La ventana se declara primero para que se destruya al final.
     sf::RenderWindow ventana_;
     bool pantallaCompleta_ = true;
