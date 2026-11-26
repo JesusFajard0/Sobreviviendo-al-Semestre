@@ -24,6 +24,12 @@ namespace
 
     float limitar01(float v) { return std::clamp(v, 0.f, 1.f); }
 
+    float suavizar(float v)
+    {
+        v = limitar01(v);
+        return v * v * (3.f - 2.f * v);
+    }
+
     sf::Color mezclar(const sf::Color& a, const sf::Color& b, float p)
     {
         p = limitar01(p);
@@ -73,6 +79,7 @@ float AnimacionState::duracion() const
     case TipoAnimacion::Dormir:    return 3.8f;
     case TipoAnimacion::Siesta:    return 2.4f;
     case TipoAnimacion::Duchar:    return 3.2f;
+    case TipoAnimacion::Comer:     return 3.6f;
     }
     return 3.f;
 }
@@ -240,6 +247,7 @@ void AnimacionState::draw(sf::RenderWindow& window)
     case TipoAnimacion::Dormir:    dibujarDormir(window, true);   break;
     case TipoAnimacion::Siesta:    dibujarDormir(window, false);  break;
     case TipoAnimacion::Duchar:    dibujarDuchar(window);         break;
+    case TipoAnimacion::Comer:     dibujarComer(window);          break;
     }
 
     dibujarTextoFinal(window);
@@ -310,14 +318,14 @@ void AnimacionState::dibujarConImagenes(sf::RenderWindow& w)
         // Transicion suave entre poses, zoom progresivo con micro-respiracion
         // y un pulso sutil de luz en el aula para que se sienta viva.
         constexpr float POR_POSE = 1.5f;
-        constexpr float TRAMO    = 0.35f;
+        constexpr float TRAMO    = 0.45f;
 
         const float pos  = t_ / POR_POSE;
         const int   i    = static_cast<int>(pos) % n;
         const int   sig  = (i + 1) % n;
         const float frac = pos - std::floor(pos);
         const float fund = (n > 1)
-            ? limitar01((frac - (1.f - TRAMO / POR_POSE)) / (TRAMO / POR_POSE))
+            ? suavizar((frac - (1.f - TRAMO / POR_POSE)) / (TRAMO / POR_POSE))
             : 0.f;
 
         const float respiro = 0.008f * std::sin(t_ * 3.2f);
@@ -339,9 +347,23 @@ void AnimacionState::dibujarConImagenes(sf::RenderWindow& w)
 
     case TipoAnimacion::Examen:
     {
-        // Alterna entre escribir y pensar.
-        const int i = static_cast<int>(t_ / 0.9f) % n;
-        imagen(w, *imagenes_[i], 1.f);
+        // Transicion suave entre cuadros para evitar cortes bruscos.
+        constexpr float POR_POSE = 1.1f;
+        constexpr float TRAMO    = 0.35f;
+
+        const float pos  = t_ / POR_POSE;
+        const int   i    = static_cast<int>(pos) % n;
+        const int   sig  = (i + 1) % n;
+        const float frac = pos - std::floor(pos);
+        const float fund = (n > 1)
+            ? suavizar((frac - (1.f - TRAMO / POR_POSE)) / (TRAMO / POR_POSE))
+            : 0.f;
+
+        const float zoom = 1.f + 0.03f * p;
+        imagen(w, *imagenes_[i], 1.f, zoom);
+        if (fund > 0.f)
+            imagen(w, *imagenes_[sig], fund, zoom);
+
         if (!hayFinal)
             rotulo(w, "Presentando el examen...");
         break;
@@ -354,17 +376,29 @@ void AnimacionState::dibujarConImagenes(sf::RenderWindow& w)
             sf::Color(248, 214, 60), sf::Color(130, 70, 210)
         };
 
-        // Cambia de pose al ritmo y la imagen "late" con cada golpe.
-        const float ritmo = t_ * 3.6f;
-        const int   golpe = static_cast<int>(ritmo);
-        const float pulso = 1.f + 0.03f * std::fabs(std::sin(ritmo * PI));
+        // Fundido suave entre poses con pulso moderado.
+        constexpr float POR_POSE = 1.15f;
+        constexpr float TRAMO    = 0.4f;
 
-        imagen(w, *imagenes_[golpe % n], 1.f, pulso);
+        const float pos  = t_ / POR_POSE;
+        const int   i    = static_cast<int>(pos) % n;
+        const int   sig  = (i + 1) % n;
+        const float frac = pos - std::floor(pos);
+        const float fund = (n > 1)
+            ? suavizar((frac - (1.f - TRAMO / POR_POSE)) / (TRAMO / POR_POSE))
+            : 0.f;
 
+        const float pulso = 1.015f + 0.015f * std::sin(t_ * 4.5f);
+
+        imagen(w, *imagenes_[i], 1.f, pulso);
+        if (fund > 0.f)
+            imagen(w, *imagenes_[sig], fund, pulso);
+
+        const int golpe = static_cast<int>(t_ * 2.2f);
         const sf::Color c = PALETA[golpe % 4];
-        const float destello = 1.f - (ritmo - static_cast<float>(golpe));
+        const float destello = 0.5f + 0.5f * std::sin(t_ * 4.4f);
         rect(w, 0.f, 0.f, ANCHO, ALTO,
-             sf::Color(c.r, c.g, c.b, static_cast<std::uint8_t>(45.f * destello)));
+             sf::Color(c.r, c.g, c.b, static_cast<std::uint8_t>(26.f * destello)));
 
         rotulo(w, "¡Noche de rumba!");
         break;
@@ -376,11 +410,12 @@ void AnimacionState::dibujarConImagenes(sf::RenderWindow& w)
         const bool noche = (tipo_ == TipoAnimacion::Dormir);
 
         // De noche: la primera imagen se funde con la segunda (amanecer).
-        const float amanecer = (noche && n >= 2) ? limitar01((p - 0.55f) / 0.2f) : 0.f;
+        const float amanecer = (noche && n >= 2) ? suavizar((p - 0.55f) / 0.25f) : 0.f;
+        const float zoom     = 1.f + 0.03f * p;
 
-        imagen(w, *imagenes_[0], 1.f);
+        imagen(w, *imagenes_[0], 1.f, zoom);
         if (amanecer > 0.f)
-            imagen(w, *imagenes_[1], amanecer);
+            imagen(w, *imagenes_[1], amanecer, zoom);
 
         // Zzz que suben desde la cabeza mientras duerme.
         if (amanecer < 0.6f)
@@ -407,14 +442,14 @@ void AnimacionState::dibujarConImagenes(sf::RenderWindow& w)
     case TipoAnimacion::Duchar:
     {
         constexpr float POR_POSE = 1.6f;
-        constexpr float TRAMO    = 0.35f;
+        constexpr float TRAMO    = 0.45f;
 
         const float pos  = t_ / POR_POSE;
         const int   i    = static_cast<int>(pos) % n;
         const int   sig  = (i + 1) % n;
         const float frac = pos - std::floor(pos);
         const float fund = (n > 1)
-            ? limitar01((frac - (1.f - TRAMO / POR_POSE)) / (TRAMO / POR_POSE))
+            ? suavizar((frac - (1.f - TRAMO / POR_POSE)) / (TRAMO / POR_POSE))
             : 0.f;
 
         const float respiro = 0.006f * std::sin(t_ * 2.8f);
@@ -427,6 +462,36 @@ void AnimacionState::dibujarConImagenes(sf::RenderWindow& w)
         const int puntos = (static_cast<int>(t_ * 2.5f) % 3) + 1;
         const std::string suspensivos(static_cast<std::size_t>(puntos), '.');
         rotulo(w, "Duchándose" + suspensivos);
+        break;
+    }
+
+    case TipoAnimacion::Comer:
+    {
+        // Avance suave por los pasos de comida sin corte brusco.
+        const float tramoTotal  = duracion() / static_cast<float>(std::max(1, n));
+        const float fundidoPaso = std::min(0.45f, tramoTotal * 0.35f);
+
+        const int actual    = std::min(static_cast<int>(t_ / tramoTotal), n - 1);
+        const int siguiente = std::min(actual + 1, n - 1);
+
+        float fund = 0.f;
+        if (actual != siguiente)
+        {
+            const float finActual = static_cast<float>(actual + 1) * tramoTotal;
+            fund = suavizar((t_ - (finActual - fundidoPaso)) / fundidoPaso);
+        }
+
+        const float respiro = 0.006f * std::sin(t_ * 2.5f);
+        const float zoom    = 1.01f + 0.04f * p + respiro;
+
+        imagen(w, *imagenes_[actual], 1.f, zoom);
+        if (fund > 0.f)
+            imagen(w, *imagenes_[siguiente], fund, zoom);
+
+        const int puntos = (static_cast<int>(t_ * 2.5f) % 3) + 1;
+        const std::string suspensivos(static_cast<std::size_t>(puntos), '.');
+        const std::string lugar = detalle_.empty() ? "Comiendo" : ("Comiendo " + detalle_);
+        rotulo(w, lugar + suspensivos);
         break;
     }
     }
@@ -741,5 +806,26 @@ void AnimacionState::dibujarDuchar(sf::RenderWindow& w)
     const int puntos = (static_cast<int>(t_ * 2.5f) % 3) + 1;
     const std::string suspensivos(static_cast<std::size_t>(puntos), '.');
     texto(w, "Duchándose" + suspensivos, 14, 320.f, 316.f, BLANCO);
+    barra(w);
+}
+
+// ---------------------------------------------------------------
+// Comer: respaldo sencillo si no hay imagenes en assets/animaciones/
+// ---------------------------------------------------------------
+
+void AnimacionState::dibujarComer(sf::RenderWindow& w)
+{
+    rect(w, 0.f, 0.f, ANCHO, ALTO, sf::Color(215, 185, 145));
+    rect(w, 0.f, 242.f, ANCHO, 118.f, sf::Color(135, 95, 62));
+    rect(w, 180.f, 196.f, 280.f, 24.f, sf::Color(155, 110, 70));
+    circulo(w, 320.f, 190.f, 20.f, sf::Color(245, 245, 245));
+
+    if (hoja_ != nullptr)
+        personaje(w, 0, 0, 320.f, 196.f, 2.f);
+
+    const int puntos = (static_cast<int>(t_ * 2.5f) % 3) + 1;
+    const std::string suspensivos(static_cast<std::size_t>(puntos), '.');
+    const std::string lugar = detalle_.empty() ? "Comiendo" : ("Comiendo " + detalle_);
+    texto(w, lugar + suspensivos, 14, 320.f, 316.f, BLANCO);
     barra(w);
 }

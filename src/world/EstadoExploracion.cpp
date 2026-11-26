@@ -2,8 +2,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <initializer_list>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -17,6 +19,7 @@
 #include "world/LectorNpcs.hpp"
 #include "dialogue/DialogoState.hpp"
 #include "world/AnimacionState.hpp"
+#include "world/BusState.hpp"
 #include "world/ClaseState.hpp"
 #include "world/ExamenState.hpp"
 #include "world/FinDeSemanaState.hpp"
@@ -59,6 +62,10 @@ namespace
     // Caja de texto modal.
     constexpr unsigned TAM_TEXTO_MENSAJE = 14;
     constexpr float    RELLENO_CAJA      = 20.f;   // espacio entre texto y borde
+
+    // Transición fina (fundido suave al entrar a una escena o abrir mensajes).
+    constexpr float VELOCIDAD_TRANSICION_ESCENA = 520.f;
+    constexpr float VELOCIDAD_TRANSICION_CAJA   = 750.f;
 
     // Número redondeado con signo: "+15", "-5", "0".
     std::string conSigno(float valor)
@@ -113,6 +120,33 @@ namespace
             }
             else
                 break;
+        }
+        return imagenes;
+    }
+
+    std::vector<const sf::Texture*> cargarTexturasPorNombre(
+        GestorRecursos& recursos,
+        const std::initializer_list<const char*>& nombres)
+    {
+        std::vector<const sf::Texture*> imagenes;
+
+        for (const char* nombre : nombres)
+        {
+            const std::string clave = std::string("anim_") + nombre;
+            const std::string ruta  = std::string("assets/animaciones/") + nombre + ".png";
+
+            if (recursos.obtenerTextura(clave) == nullptr)
+            {
+                if (!std::filesystem::exists(ruta))
+                    continue;
+                recursos.cargarTextura(clave, ruta);
+            }
+
+            if (sf::Texture* t = recursos.obtenerTextura(clave))
+            {
+                t->setSmooth(true);
+                imagenes.push_back(t);
+            }
         }
         return imagenes;
     }
@@ -243,6 +277,8 @@ void EstadoExploracion::cambiarEscena(const std::string& id)
     if (const sf::Texture* fondo = recursos_.obtenerTextura(claveFondo))
         escena_->ponerFondo(*fondo);
 
+    // Transición suave al entrar en la nueva escena.
+    alfaEscena_ = 0.f;
 
     colisionesNuevas_ = 0;
     arrastrando_ = false;
@@ -253,6 +289,22 @@ void EstadoExploracion::cambiarEscena(const std::string& id)
     crearObjetos(id);
     crearMuebles(id);
     crearNpcs(id);   // S2-7
+}
+
+void EstadoExploracion::iniciarBus(const std::string& idDestino)
+{
+    const Bloque b = tiempo_.bloque();
+    const bool esNoche = (b == Bloque::Noche || b == Bloque::Madrugada);
+
+    auto imagenes = esNoche
+        ? cargarTexturasPorNombre(recursos_, { "busnoche1", "busnoche2" })
+        : cargarTexturasPorNombre(recursos_, { "busdia1", "busdia2" });
+
+    m_stack->pushState(std::make_unique<BusState>(
+        m_stack,
+        std::move(imagenes),
+        [this, idDestino]() { cambiarEscena(idDestino); }
+    ));
 }
 
 void EstadoExploracion::crearObjetos(const std::string& idEscena)
@@ -302,7 +354,7 @@ void EstadoExploracion::crearObjetos(const std::string& idEscena)
             etiqueta,
             [this](const std::string& id) { usarActividad(id); }
         ));
-    } // <--- El bucle for termina aquí afuera
+    }
 
     // --- INSTANCIACIÓN DINÁMICA DE EXÁMENES (Solo en la mañana del examen) ---
     if (esMañanaDeExamen)
@@ -530,6 +582,18 @@ void EstadoExploracion::usarActividad(const std::string& idSolicitada)
     // debajo (la caja con los resultados o la pantalla de la nota).
     const sf::Texture* hojaPersonaje = recursos_.obtenerTextura("personaje");
 
+    if (idActividad == "comer_casa" || idActividad == "comer_cafeteria")
+    {
+        const bool enCafetin = (idActividad == "comer_cafeteria") ||
+                               (escena_ && escena_->id() == "cafeteria");
+        const std::string prefijo = enCafetin ? "comer_cafetin" : "comer_casa";
+        const std::string lugar   = enCafetin ? "en el cafetín" : "en casa";
+
+        m_stack->pushState(std::make_unique<AnimacionState>(
+            m_stack, fuente(), hojaPersonaje, TipoAnimacion::Comer, lugar,
+            cargarImagenesAnimacion(recursos_, prefijo)));
+    }
+
     if (fueAClase)
         m_stack->pushState(std::make_unique<AnimacionState>(
             m_stack, fuente(), hojaPersonaje, TipoAnimacion::Clase,
@@ -601,6 +665,7 @@ void EstadoExploracion::mostrarMensaje(const std::string& texto)
     ));
     textoMensaje_.setPosition(centro);
 
+    alfaMensaje_ = 0.f;
     mostrandoMensaje_ = true;
 }
 
@@ -648,8 +713,16 @@ void EstadoExploracion::revisarEventosTiempo()
         std::cout << "[Tiempo] Fin de semana (" << fin.nombre << "): empieza la semana "
                   << tiempo_.semana() << " (termino la " << semanaQueTermina << ").\n";
 
+        const char* prefijo = "fin_aseo";
+        if (fin.tipo == TipoFinDeSemana::Rumba)
+            prefijo = "fin_rumba";
+        else if (fin.tipo == TipoFinDeSemana::Estudio)
+            prefijo = "fin_estudio";
+
         // Pantalla propia: se apila encima y, al pulsar ENTER, vuelve la exploracion.
-        m_stack->pushState(std::make_unique<FinDeSemanaState>(m_stack, recursos_, fin));
+        m_stack->pushState(std::make_unique<FinDeSemanaState>(
+            m_stack, recursos_, fin,
+            cargarImagenesAnimacion(recursos_, prefijo)));
         return;
     }
 
@@ -768,14 +841,15 @@ void EstadoExploracion::revisarEventosTiempo()
             const DatosEscena* datos = mapa_.datos(idActual);
             const std::string nombre = (datos != nullptr) ? datos->nombre : idActual;
 
-            cambiarEscena(mapa_.raiz());
+            // Transición del bus al regresar al apartamento por cierre de escena
+            iniciarBus(mapa_.raiz());
 
-            std::cout << "[Tiempo] " << nombre << " cerro: vuelves al apartamento.\n";
+            std::cout << "[Tiempo] " << nombre << " cerro: vuelves al apartamento en bus.\n";
 
             mostrarMensaje(
                 "== Cerrado ==\n\n" +
                 nombre + " cerró por hoy.\n"
-                "Vuelves al apartamento.\n\n"
+                "Vuelves al apartamento en autobús.\n\n"
                 "(Presiona ENTER)"
             );
         }
@@ -819,7 +893,16 @@ void EstadoExploracion::abrirMenuDestinos()
         switch (mapa_.puedeIr(idActual, idDestino, partida_.faseSemestre()))
         {
         case ResultadoCambio::Ok:
-            cambiarEscena(idDestino);
+            // S3-4: animación de viaje en autobús entre el apartamento y la universidad
+            if ((idActual == "apartamento" && idDestino == "universidad") ||
+                (idActual == "universidad" && idDestino == "apartamento"))
+            {
+                iniciarBus(idDestino);
+            }
+            else
+            {
+                cambiarEscena(idDestino);
+            }
             break;
 
         case ResultadoCambio::Animacion:
@@ -1300,6 +1383,16 @@ void EstadoExploracion::update(float dt)
 {
     hud_.actualizar(dt, estadisticas_, tiempo_);
 
+    if (alfaEscena_ < 255.f)
+    {
+        alfaEscena_ = std::min(255.f, alfaEscena_ + dt * VELOCIDAD_TRANSICION_ESCENA);
+    }
+
+    if (mostrandoMensaje_ && alfaMensaje_ < 255.f)
+    {
+        alfaMensaje_ = std::min(255.f, alfaMensaje_ + dt * VELOCIDAD_TRANSICION_CAJA);
+    }
+
     // Fin de semana, fin de semestre y escenas que cierran (los provoque una
     // actividad o una tecla de depuración).
     revisarEventosTiempo();
@@ -1353,7 +1446,7 @@ void EstadoExploracion::draw(sf::RenderWindow& window)
 
     escena_->dibujar(window, fuente(), verColisiones_);
 
-        // Orden de profundidad: un mueble cuyo borde inferior queda más arriba que
+    // Orden de profundidad: un mueble cuyo borde inferior queda más arriba que
     // los pies del personaje se dibuja detrás de él; los demás, delante.
     const sf::FloatRect pies = personaje_.hitbox();
     const float yPiesPersonaje = posicionRect(pies).y + tamanoRect(pies).y;
@@ -1409,11 +1502,11 @@ void EstadoExploracion::draw(sf::RenderWindow& window)
         for (const Mueble* m : ordenados)
         {
             const sf::FloatRect c = m->colision();
-            
+
             if (tamanoRect(c).y < 1.f)
                 continue;   // mueble sin base: no hay nada que mostrar
-            
-                sf::RectangleShape base(tamanoRect(c));
+
+            sf::RectangleShape base(tamanoRect(c));
             base.setPosition(posicionRect(c));
             base.setFillColor(sf::Color(80, 200, 255, 60));
             base.setOutlineColor(sf::Color(80, 200, 255));
@@ -1436,15 +1529,37 @@ void EstadoExploracion::draw(sf::RenderWindow& window)
         window.draw(previa);
     }
 
+    if (alfaEscena_ < 255.f)
+    {
+        const auto veloOscuro = static_cast<std::uint8_t>(255.f - alfaEscena_);
+        sf::RectangleShape transicion(sf::Vector2f(ANCHO_VISTA, ALTO_VISTA));
+        transicion.setFillColor(sf::Color(0, 0, 0, veloOscuro));
+        window.draw(transicion);
+    }
+
     hud_.dibujar(window);
 
     // La caja de texto va por encima de todo (también del HUD), con un velo
     // oscuro detrás para que se lea bien.
     if (mostrandoMensaje_)
     {
+        const float factor = std::clamp(alfaMensaje_, 0.f, 255.f) / 255.f;
+
         sf::RectangleShape velo(sf::Vector2f(ANCHO_VISTA, ALTO_VISTA));
-        velo.setFillColor(sf::Color(0, 0, 0, 150));
+        velo.setFillColor(sf::Color(0, 0, 0, static_cast<std::uint8_t>(150.f * factor)));
         window.draw(velo);
+
+        sf::Color colorCaja = fondoMensaje_.getFillColor();
+        colorCaja.a = static_cast<std::uint8_t>(240.f * factor);
+        fondoMensaje_.setFillColor(colorCaja);
+
+        sf::Color colorBorde = fondoMensaje_.getOutlineColor();
+        colorBorde.a = static_cast<std::uint8_t>(255.f * factor);
+        fondoMensaje_.setOutlineColor(colorBorde);
+
+        sf::Color colorTexto = textoMensaje_.getFillColor();
+        colorTexto.a = static_cast<std::uint8_t>(255.f * factor);
+        textoMensaje_.setFillColor(colorTexto);
 
         window.draw(fondoMensaje_);
         window.draw(textoMensaje_);
