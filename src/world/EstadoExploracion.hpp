@@ -2,6 +2,8 @@
 
 #include <SFML/Graphics.hpp>
 
+#include <array>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -22,6 +24,9 @@
 #include "world/DatosNpc.hpp"
 #include "world/Npc.hpp"
 #include "dialogue/GestorDialogos.hpp"
+#include "world/AmbienteRastro.hpp"
+#include "world/DatosRastro.hpp"
+#include "world/ObjetoRastro.hpp"
 #include "world/Personaje.hpp"
 #include "world/DatosMueble.hpp"
 #include "world/Mueble.hpp"
@@ -58,6 +63,13 @@ private:
     // S2-7: NPCs quietos y dialogos.
     void crearNpcs(const std::string& idEscena);
     void hablarCon(const std::string& idDialogo);
+
+    // S3-3: rastro de los salones (pizarra, objetos y ambiente segun el examen)
+    // y aviso de cambio de fase con el desbloqueo de salones.
+    void crearRastros(const std::string& idEscena);
+    void revisarFaseYRastros();
+    bool rastroActivo(const DatosRastro& d) const;
+    std::map<std::string, std::string> valoresPlantilla(Materia materia) const;
 
     // Caja de texto modal: pausa el juego hasta que se pulse ENTER o E.
     // Se coloca encima del personaje sin salirse de la pantalla.
@@ -147,4 +159,15 @@ private:
     GestorDialogos dialogos_;
     std::vector<DatosNpc> datosNpcs_;
     std::vector<std::unique_ptr<Npc>> npcs_;
+
+    // S3-3: datos de data/rastros.txt, el rastro de la escena actual y lo que
+    // hace falta para mostrar cada aviso una sola vez.
+    std::vector<DatosRastro> datosRastros_;
+    std::vector<MensajeFase> mensajesFase_;
+    std::vector<std::unique_ptr<ObjetoRastro>> rastros_;
+    std::unique_ptr<AmbienteRastro> ambiente_;      // tono y particulas del salon
+    std::vector<char> rastroVisto_;                 // mensajes de entrada ya mostrados
+    int faseVista_ = 1;                             // ultima fase avisada
+    std::string escenaRevisada_;                    // ultima escena cuyo mensaje se reviso
+    std::array<int, static_cast<int>(Materia::Cantidad)> huellaNotas_{};   // para refrescar el rastro
 };
