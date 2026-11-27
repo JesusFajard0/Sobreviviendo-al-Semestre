@@ -49,7 +49,11 @@ public:
 
     int nochesSinDormir() const { return nochesSinDormir_; }
 
+    // S3-5: noches sin dormir en toda la partida (no solo las seguidas).
+    int nochesSinDormirTotal() const { return nochesTotal_; }
+
 private:
     bool durmioEstaNoche_ = false;
     int  nochesSinDormir_ = 0;
+    int  nochesTotal_     = 0;
 };

@@ -1,0 +1,42 @@
+# S3-5: los 6 FINALES y los UMBRALES que los deciden. Ningun numero esta en el
+# codigo: para ajustar un umbral o cambiar un final solo se edita este archivo
+# (sin recompilar).
+#
+# --- Umbrales ----------------------------------------------------------------
+# umbral | nombre | valor
+umbral | promedio_alto   | 16     # promedio de este valor o mas = notas altas
+umbral | promedio_minimo | 10     # promedio minimo de quien aprobo las 3 materias
+umbral | salud_buena     | 60     # salud mental minima para "estadisticas buenas"
+umbral | dopamina_buena  | 50     # dopamina minima para "estadisticas buenas"
+umbral | noches_maximas  | 5      # maximo de noches sin dormir para "estadisticas buenas"
+umbral | fiestas_vago    | 5      # fiestas desde las que se es "vago fiestero"
+
+# --- Finales -----------------------------------------------------------------
+# final | id | nombre | imagen | condiciones | texto
+#
+#   Cada partida debe caer en EXACTAMENTE un final. Al cargar, el juego revisa
+#   esto y avisa por consola si alguna combinacion no cae en ninguno o cae en
+#   mas de uno.
+#   imagen:      ruta de la imagen del final. Si no existe, la pantalla muestra
+#                un recuadro provisional.
+#   condiciones: varias separadas por &. Cada una es  metrica operador valor,
+#                con operadores >= <= > < == != y donde "valor" es un numero o el
+#                nombre de un umbral de arriba.
+#   metricas:    aprobadas, no_presentadas, promedio, nota_calculo, nota_fisica,
+#                nota_programacion, salud_mental, dopamina, dinero, energia,
+#                estres, asistencias, faltas, fiestas, platos, noches_sin_dormir
+#                y estadisticas_buenas (1 si a la vez salud_mental >= salud_buena,
+#                dopamina >= dopamina_buena y noches_sin_dormir <= noches_maximas;
+#                0 si falla cualquiera de las tres).
+#   texto:       \n = salto de linea. Se puede usar cualquier metrica como
+#                {metrica}. No puede llevar el caracter |
+
+# Aprobo las 3 materias
+final | ejemplar            | Estudiante ejemplar               | assets/finales/ejemplar.png            | aprobadas==3 & promedio>=promedio_alto & estadisticas_buenas==1 | Aprobaste las tres materias con un promedio de {promedio} / 20 y sin descuidarte: salud mental en {salud_mental}, dopamina en {dopamina} y pocas noches en vela.\nLo lograste sin morir en el intento. ¡Eres una leyenda de la ULA!
+final | ejemplar_sacrificio | Estudiante ejemplar (se sacrificó) | assets/finales/ejemplar_sacrificio.png | aprobadas==3 & promedio>=promedio_alto & estadisticas_buenas==0 | Aprobaste todo con un promedio de {promedio} / 20, pero tu cuerpo y tu cabeza pagaron la cuenta: {noches_sin_dormir} noches sin dormir y una salud mental de {salud_mental}.\nLas notas son brillantes... el descanso, un recuerdo lejano.
+final | equilibrio          | Equilibrio                        | assets/finales/equilibrio.png          | aprobadas==3 & promedio>=promedio_minimo & promedio<promedio_alto & estadisticas_buenas==1 | Aprobaste las tres materias con {promedio} / 20 y llegaste al final en buen estado.\nEstudiaste, descansaste y hasta te divertiste. Así se sobrevive a un semestre.
+final | sobreviviente       | Sobreviviente                     | assets/finales/sobreviviente.png       | aprobadas==3 & promedio>=promedio_minimo & promedio<promedio_alto & estadisticas_buenas==0 | Aprobaste las tres materias con {promedio} / 20, aunque a duras penas: salud mental de {salud_mental}, dopamina de {dopamina} y {noches_sin_dormir} noches sin dormir.\nNo fue bonito, pero sobreviviste.
+
+# Reprobo al menos una
+final | vago_fiestero       | Vago fiestero                     | assets/finales/vago_fiestero.png       | aprobadas<3 & fiestas>=fiestas_vago | Solo aprobaste {aprobadas} de 3 materias y fuiste de fiesta {fiestas} veces.\nLa discoteca ya te conoce por tu nombre. Los profesores, no tanto.
+final | semestre_perdido    | Semestre perdido                  | assets/finales/semestre_perdido.png    | aprobadas<3 & fiestas<fiestas_vago | Aprobaste {aprobadas} de 3 materias y solo fuiste de fiesta {fiestas} veces: ni siquiera te divertiste.\n Tal vez la ingenieria no es para ti.

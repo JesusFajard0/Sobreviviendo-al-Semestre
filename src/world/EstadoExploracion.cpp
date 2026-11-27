@@ -27,6 +27,7 @@
 #include "world/ClaseState.hpp"
 #include "world/ExamenState.hpp"
 #include "world/FinDeSemanaState.hpp"
+#include "ui/ResumenState.hpp"
 #include "world/MenuDestinos.hpp"
 #include "minigames/MinijuegoPrueba.hpp"
 #include "minigames/SeleccionEstudio.hpp"
@@ -294,6 +295,10 @@ EstadoExploracion::EstadoExploracion(StateStack* pila,
             << "[EstadoExploracion] Hubo problemas al cargar "
             << "data/notas.txt.\n";
     }
+
+    // S3-5: reglas de los finales (data/finales.txt)
+    if (!finales_.cargarDesdeArchivo("data/finales.txt"))
+        std::cerr << "[EstadoExploracion] Hubo problemas al cargar data/finales.txt.\n";
 
     // Configuración visual de la caja de texto (opaca para que se lea bien).
     fondoMensaje_.setFillColor(sf::Color(20, 20, 30, 255));
@@ -839,6 +844,12 @@ void EstadoExploracion::usarActividad(const std::string& idSolicitada)
     // S2-5: orden del apartamento y discoteca del viernes
     finDeSemana_.registrarActividad(idActividad);
 
+    // S3-5: contadores del resumen del semestre
+    if (idActividad == "discoteca")
+        historial_.registrarFiesta();
+    if (idActividad == "lavar_platos")
+        historial_.registrarPlatos();
+
     // S2-6: se guarda la nota del examen (ya se hizo la actividad)
     if (examen.has_value())
     {
@@ -1047,6 +1058,12 @@ void EstadoExploracion::revisarEventosTiempo()
         fin.mesada      = mesada;
         fin.semanaNueva = tiempo_.semana();
 
+        // S3-5: una rumba cuenta como fiesta y el aseo como platos lavados.
+        if (fin.tipo == TipoFinDeSemana::Rumba)
+            historial_.registrarFiesta();
+        else if (fin.tipo == TipoFinDeSemana::Aseo)
+            historial_.registrarPlatos();
+
         std::cout << "[Tiempo] Fin de semana (" << fin.nombre << "): empieza la semana "
                   << tiempo_.semana() << " (termino la " << semanaQueTermina << ").\n";
 
@@ -1069,28 +1086,8 @@ void EstadoExploracion::revisarEventosTiempo()
 
         std::cout << "[Tiempo] Fin del semestre.\n";
 
-        // S2-6: las tres notas y el promedio (el resumen completo llega con S3-5).
-        std::string notasTexto;
-        for (int i = 0; i < static_cast<int>(Materia::Cantidad); ++i)
-        {
-            const Materia m = static_cast<Materia>(i);
-            notasTexto += std::string(Estadisticas::nombre(m)) + ": " +
-                          std::to_string(partida_.notas.nota(m)) + " / " +
-                          std::to_string(Notas::NOTA_MAXIMA) +
-                          (partida_.notas.estado(m) == EstadoExamen::NoPresento ? "  (no presentó)" : "") +
-                          "\n";
-        }
-        notasTexto += "Promedio: " + std::to_string(partida_.notas.promedio()) + " / " +
-                      std::to_string(Notas::NOTA_MAXIMA) + "\n";
-
-        mostrarMensaje(
-            "== Fin del semestre ==\n\n"
-            "Terminaste las " + std::to_string(Tiempo::SEMANAS) + " semanas.\n\n" +
-            notasTexto + "\n"
-            "(Aquí irán la animación final\n"
-            "y el resumen de finales.)\n\n"
-            "(Presiona ENTER)"
-        );
+        // S3-5: notas, estadisticas y el final que le toco.
+        abrirResumenSemestre();
         return;
     }
 
@@ -1196,6 +1193,42 @@ void EstadoExploracion::revisarEventosTiempo()
 // ---------------------------------------------------------------
 // Menú de destinos
 // ---------------------------------------------------------------
+
+// S3-5: lo que pasa despues del examen final. Se juntan las notas y los
+// contadores, se elige el final con las reglas de data/finales.txt y se abren
+// las pantallas de resumen. Su ultimo boton no cambia la pila aqui: pide a
+// Juego (por Partida::peticion) volver al menu, porque eso destruye este estado.
+void EstadoExploracion::abrirResumenSemestre()
+{
+    DatosPartida datos;
+    datos.asistencias     = asistencia_.totalAsistencias();
+    datos.faltas          = asistencia_.totalFaltas();
+    datos.fiestas         = historial_.fiestas();
+    datos.platos          = historial_.platos();
+    datos.nochesSinDormir = colapso_.nochesSinDormirTotal();
+
+    const ResumenSemestre resumen = finales_.resumir(partida_.notas, estadisticas_, datos);
+
+    std::cout << "[Final] " << resumen.idFinal << '\n';
+
+    // Imagen del final (la ruta sale de data/finales.txt). Si no existe, la
+    // pantalla dibuja un recuadro provisional.
+    const sf::Texture* imagen = nullptr;
+    if (!resumen.imagenFinal.empty())
+    {
+        const std::string clave = "final_" + resumen.idFinal;
+        if (recursos_.obtenerTextura(clave) == nullptr &&
+            std::filesystem::exists(resumen.imagenFinal))
+        {
+            recursos_.cargarTextura(clave, resumen.imagenFinal);
+        }
+        imagen = recursos_.obtenerTextura(clave);
+    }
+
+    m_stack->pushState(std::make_unique<ResumenState>(
+        m_stack, fuente(), resumen, imagen,
+        [this]() { partida_.peticion = Partida::Peticion::VolverAlMenu; }));
+}
 
 void EstadoExploracion::abrirMenuDestinos()
 {

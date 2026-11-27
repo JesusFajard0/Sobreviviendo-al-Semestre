@@ -30,4 +30,15 @@ struct Partida
     // Fase del semestre que usan las puertas (faseMinima en data/escenas.txt):
     // 1 = Cálculo, 2 = Física, 3 = Programación.
     int faseSemestre() const;
+
+    // S3-5: nueva partida. Deja las estadisticas, las notas, el tiempo y los
+    // contadores de actividades como al empezar. (Los datos cargados de los
+    // archivos de data/ se conservan.)
+    void reiniciar();
+
+    // S3-5: lo que el jugador pidio al terminar el semestre. Juego lo atiende al
+    // final de cada cuadro (fuera de cualquier estado), porque implica vaciar la
+    // pila.
+    enum class Peticion { Ninguna, VolverAlMenu };
+    Peticion peticion = Peticion::Ninguna;
 };

@@ -19,6 +19,7 @@ void Colapso::reiniciar()
 {
     durmioEstaNoche_ = false;
     nochesSinDormir_ = 0;
+    nochesTotal_     = 0;
 }
 
 ResultadoColapso Colapso::evaluar(Estadisticas& est)
@@ -69,6 +70,7 @@ ResultadoAmanecer Colapso::alAmanecer(Estadisticas& est)
     }
 
     ++nochesSinDormir_;
+    ++nochesTotal_;
     est.modificar(Stat::Energia, NOCHE_EN_VELA_ENERGIA);
     est.modificar(Stat::Estres,  NOCHE_EN_VELA_ESTRES);
 
