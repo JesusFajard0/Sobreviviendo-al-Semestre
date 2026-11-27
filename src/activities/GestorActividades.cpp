@@ -333,6 +333,67 @@ ResultadoActividad GestorActividades::ejecutar(const std::string& id,
 
     return resultado;
 }
+// ---------------------------------------------------------------
+// Actividad realizada sin recompensas.
+// Util para minijuegos de estudio fallidos.
+// ---------------------------------------------------------------
+
+ResultadoActividad GestorActividades::ejecutarSinRecompensa(
+    const std::string& id,
+    const Estadisticas& estadisticas,
+    Tiempo& tiempo)
+{
+    ResultadoActividad resultado;
+
+    const Entrada* entrada = buscarEntrada(id);
+
+    if (entrada == nullptr)
+    {
+        resultado.estado = EstadoActividad::NoExiste;
+        return resultado;
+    }
+
+    // Aplicar las mismas validaciones de la actividad.
+    resultado.estado = validar(
+        *entrada,
+        estadisticas,
+        tiempo
+    );
+
+    if (resultado.estado != EstadoActividad::Disponible)
+        return resultado;
+
+    // La actividad se intento, aunque no fue exitosa.
+    ++entrada->usosHoy;
+
+    resultado.estado = EstadoActividad::Hecha;
+
+    // No modificar energia, estres, dopamina,
+    // salud mental, dinero ni conocimiento.
+
+    // Solamente consumir el tiempo correspondiente.
+    const GastoTiempo gasto = entrada->datos.gasto;
+
+    if (gasto != GastoTiempo::Ninguno)
+    {
+        resultado.evento = tiempo.avanzarBloque();
+
+        while (
+            gasto == GastoTiempo::HastaAmanecer &&
+            resultado.evento == EventoTiempo::Ninguno)
+        {
+            resultado.evento = tiempo.avanzarBloque();
+        }
+
+        // Mantener el funcionamiento de los limites diarios.
+        if (resultado.evento != EventoTiempo::Ninguno)
+        {
+            reiniciarContadores();
+        }
+    }
+
+    return resultado;
+}
 
 void GestorActividades::reiniciarContadores()
 {

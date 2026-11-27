@@ -39,6 +39,15 @@ public:
                                 Estadisticas& estadisticas,
                                 Tiempo& tiempo,
                                 Materia materiaActiva);
+    // Registra una actividad realizada sin recompensas.
+    // Respeta horarios y limites diarios.
+    // Consume el tiempo configurado, pero no cambia
+    // estadisticas ni conocimiento.
+    ResultadoActividad ejecutarSinRecompensa(
+        const std::string& id,
+        const Estadisticas& estadisticas,
+        Tiempo& tiempo
+    );
 
     // Veces que se hizo hoy. Devuelve 0 si la actividad no existe.
     int usosHoy(const std::string& id) const;

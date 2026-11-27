@@ -23,6 +23,7 @@
 #include "world/MenuDestinos.hpp"
 #include "minigames/MinijuegoPrueba.hpp"
 #include "minigames/SeleccionEstudio.hpp"
+#include "minigames/MataLaIntegral.hpp"
 
 
 namespace
@@ -161,10 +162,20 @@ EstadoExploracion::EstadoExploracion(StateStack* pila,
                 registroMinijuegos_.registrar(
                     id,
                     categoria,
-                    [this, id](
-                        StateStack* pila,
-                        Minijuego::AlTerminar alTerminar)
+                    [this, id](StateStack* pila, Minijuego::AlTerminar alTerminar) -> std::unique_ptr<Minijuego>
                     {
+                        // Minijuego real de Calculo.
+                        if (id == "estudio_calculo")
+                        {
+                            return std::make_unique<MataLaIntegral>(
+                                pila,
+                                fuente(),
+                                std::move(alTerminar)
+                            );
+                        }
+
+                        // Los demas minijuegos mantienen
+                        // su implementacion actual.
                         return std::make_unique<MinijuegoPrueba>(
                             pila,
                             fuente(),
@@ -511,15 +522,83 @@ void EstadoExploracion::usarActividad(const std::string& idSolicitada)
                         return;
                     }
 
-                    // Por ahora, una derrota tampoco consume
-                    // la actividad. Lo definiremos despues.
-                    if (resultado.estado ==
-                        EstadoMinijuego::Fallido)
+                    // ----------------------------------------------------
+                    // Minijuego fallido: estudio ineficiente.
+                    // ----------------------------------------------------
+
+                    if (resultado.estado == EstadoMinijuego::Fallido)
                     {
-                        mostrarMensaje(
-                            "Minijuego no completado.\n\n"
-                            "(Presiona ENTER)"
-                        );
+                        const bool esEstudio =
+                            idActividad == "estudiar_casa" ||
+                            idActividad == "estudiar_biblio";
+
+                        if (esEstudio)
+                        {
+                            // Registrar el intento sin aplicar recompensas.
+                            const ResultadoActividad intento =
+                                partida_.actividades.ejecutarSinRecompensa(
+                                    idActividad,
+                                    partida_.estadisticas,
+                                    partida_.tiempo
+                                );
+
+                            if (!intento.hecha())
+                            {
+                                mostrarMensaje(
+                                    "No se pudo registrar la actividad.\n\n"
+                                    "(Presiona ENTER)"
+                                );
+                                return;
+                            }
+
+                            std::string mensaje =
+                                "== ESTUDIO INEFICIENTE ==\n\n"
+                                "Puntuacion obtenida: " +
+                                std::to_string(resultado.puntuacion) +
+                                "/100\n\n"
+                                "No lograste concentrarte lo suficiente.\n"
+                                "Conocimiento adquirido: 0\n"
+                                "Perdiste un bloque de tiempo.\n";
+
+                            // Mantener las reglas generales del calendario
+                            // cuando el bloque gastado termina el dia.
+                            if (intento.evento == EventoTiempo::NuevoDia ||
+                                intento.evento == EventoTiempo::FinDeSemana)
+                            {
+                                finDeSemana_.cerrarDia();
+
+                                const ResultadoAmanecer noche =
+                                    colapso_.alAmanecer(estadisticas_);
+
+                                if (!noche.durmio)
+                                {
+                                    mensaje += "\n";
+                                    mensaje += noche.mensaje;
+                                    mensaje += "\n";
+                                }
+                            }
+
+                            mensaje += "\n(Presiona ENTER)";
+
+                            mostrarMensaje(mensaje);
+
+                            std::cout
+                                << "[Minijuego] Estudio ineficiente: "
+                                << resultado.id
+                                << " | Puntuacion: "
+                                << resultado.puntuacion
+                                << " | Sin recompensas"
+                                << '\n';
+                        }
+                        else
+                        {
+                            // Otros minijuegos conservan su comportamiento.
+                            mostrarMensaje(
+                                "Minijuego no completado.\n\n"
+                                "(Presiona ENTER)"
+                            );
+                        }
+
                         return;
                     }
 
