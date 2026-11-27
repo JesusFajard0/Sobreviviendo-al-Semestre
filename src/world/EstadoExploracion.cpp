@@ -31,6 +31,7 @@
 #include "minigames/MinijuegoPrueba.hpp"
 #include "minigames/SeleccionEstudio.hpp"
 #include "minigames/MataLaIntegral.hpp"
+#include "minigames/MemorizaLaSecuencia.hpp"
 
 
 namespace
@@ -216,6 +217,16 @@ EstadoExploracion::EstadoExploracion(StateStack* pila,
                         if (id == "estudio_calculo")
                         {
                             return std::make_unique<MataLaIntegral>(
+                                pila,
+                                fuente(),
+                                std::move(alTerminar)
+                            );
+                        }
+                        // Minijuego real de estudio generico:
+                        // Memoriza la secuencia.
+                        if (id == "estudio_generico_2")
+                        {
+                            return std::make_unique<MemorizaLaSecuencia>(
                                 pila,
                                 fuente(),
                                 std::move(alTerminar)
