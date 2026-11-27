@@ -60,9 +60,22 @@ Juego::Juego()
         [this]() { ventana_.close(); }
     ));
 }
+void Juego::mostrarMenu()
+{
+    static const sf::Font fuenteVacia;
+    const sf::Font* fuente = recursos_.obtenerFuente("principal");
+
+    pila_.pushState(std::make_unique<MenuState>(
+        &pila_,
+        (fuente != nullptr) ? *fuente : fuenteVacia,
+        [this]() { iniciarPartida(); },
+        [this]() { ventana_.close(); }
+    ));
+}
 
 void Juego::iniciarPartida()
 {
+    partida_.reiniciar(); 
     std::vector<DiapositivaIntro> intro = {
         {
             "assets/intro/intro_1.png",
@@ -164,8 +177,15 @@ void Juego::procesarEventos()
 void Juego::actualizar(float dt)
 {
     pila_.update(dt);
-}
 
+    // S3-5: despues del final, el juego vuelve al menu
+    if (partida_.peticion == Partida::Peticion::VolverAlMenu)
+    {
+        partida_.peticion = Partida::Peticion::Ninguna;
+        pila_.clearStates();
+        mostrarMenu();
+    }
+}
 void Juego::dibujar()
 {
     ventana_.clear(sf::Color::Black);

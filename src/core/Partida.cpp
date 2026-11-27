@@ -24,3 +24,12 @@ int Partida::faseSemestre() const
 {
     return static_cast<int>(materiaActiva()) + 1;
 }
+
+void Partida::reiniciar()
+{
+    estadisticas.reiniciar();
+    notas.reiniciar();
+    tiempo.reiniciar();
+    actividades.reiniciarContadores();
+    peticion = Peticion::Ninguna;
+}

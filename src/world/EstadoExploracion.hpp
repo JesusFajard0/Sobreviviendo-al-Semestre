@@ -16,6 +16,8 @@
 #include "systems/Asistencia.hpp"
 #include "systems/Colapso.hpp"
 #include "systems/FinDeSemana.hpp"
+#include "systems/Finales.hpp"
+#include "systems/Historial.hpp"
 #include "ui/Hud.hpp"
 #include "world/DatosObjeto.hpp"
 #include "world/Escena.hpp"
@@ -82,6 +84,9 @@ private:
     // S2-4: si alguna estadistica llego al extremo, hay colapso (pierde un bloque).
     void revisarColapso();
 
+    // S3-5: despues del examen final: notas, estadisticas y el final que le toco.
+    void abrirResumenSemestre();
+
     const sf::Font& fuente() const;
 
     // TEMPORAL (S1-7): borrar antes del Pull Request.
@@ -136,6 +141,10 @@ private:
 
     // Para avisar del fin del semestre una sola vez.
     bool finSemestreMostrado_ = false;
+
+    // S3-5: reglas de los finales (data/finales.txt) y contadores del resumen.
+    Finales   finales_;
+    Historial historial_;
 
     // Para mostrar la guía del estudiante al iniciar la partida
     bool guiaInicialMostrada_ = false;

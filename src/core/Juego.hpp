@@ -26,6 +26,7 @@ private:
     void crearVentana();
     void ajustarVista();
     void iniciarPartida();   // S3-8: lo llama el boton "Jugar" del menu
+    void mostrarMenu();      // S3-5: pone el menu de inicio en la pila
 
     // La ventana se declara primero para que se destruya al final.
     sf::RenderWindow ventana_;
