@@ -28,6 +28,9 @@
 #include "world/ExamenState.hpp"
 #include "world/FinDeSemanaState.hpp"
 #include "world/MenuDestinos.hpp"
+#include "minigames/MinijuegoPrueba.hpp"
+#include "minigames/SeleccionEstudio.hpp"
+#include "minigames/MataLaIntegral.hpp"
 
 
 namespace
@@ -179,21 +182,107 @@ EstadoExploracion::EstadoExploracion(StateStack* pila,
 {
     hud_.iniciar(recursos_);
 
-    // S3-6: hoja de sprites del personaje (opcional)
-    const std::string rutaPersonaje = "assets/sprites/personaje.png";
+    // --------------------------------------------------------
+    // S2-8: registro temporal de minijuegos.
+    // --------------------------------------------------------
+
+    const std::vector<std::string> juegosEstudio = {
+        "estudio_calculo",
+        "estudio_fisica",
+        "estudio_programacion",
+        "estudio_generico_1",
+        "estudio_generico_2"
+    };
+
+    const std::vector<std::string> juegosPC = {
+        "pc_prueba_1",
+        "pc_prueba_2",
+        "pc_prueba_3"
+    };
+
+    auto registrarGrupo =
+        [this](const std::vector<std::string>& ids,
+               const std::string& categoria)
+    {
+        for (const std::string& id : ids)
+        {
+            const bool registrado =
+                registroMinijuegos_.registrar(
+                    id,
+                    categoria,
+                    [this, id](StateStack* pila, Minijuego::AlTerminar alTerminar) -> std::unique_ptr<Minijuego>
+                    {
+                        // Minijuego real de Calculo.
+                        if (id == "estudio_calculo")
+                        {
+                            return std::make_unique<MataLaIntegral>(
+                                pila,
+                                fuente(),
+                                std::move(alTerminar)
+                            );
+                        }
+
+                        // Los demas minijuegos mantienen
+                        // su implementacion actual.
+                        return std::make_unique<MinijuegoPrueba>(
+                            pila,
+                            fuente(),
+                            id,
+                            std::move(alTerminar)
+                        );
+                    }
+                );
+
+            if (!registrado)
+            {
+                std::cerr
+                    << "[Minijuegos] No se pudo registrar: "
+                    << id << '\n';
+            }
+        }
+    };
+
+    registrarGrupo(juegosEstudio, "estudio");
+    registrarGrupo(juegosPC, "computadora");
+
+    // --------------------------------------------------------
+    // S3-6: hoja de sprites del personaje.
+    // --------------------------------------------------------
+
+    const std::string rutaPersonaje =
+        "assets/sprites/personaje.png";
+
     if (std::filesystem::exists(rutaPersonaje))
         recursos_.cargarTextura("personaje", rutaPersonaje);
 
-    if (const sf::Texture* texturaPersonaje = recursos_.obtenerTextura("personaje"))
+    if (const sf::Texture* texturaPersonaje =
+            recursos_.obtenerTextura("personaje"))
+    {
         personaje_.ponerHojaSprites(*texturaPersonaje);
+    }
 
-    // S2-5: efectos del fin de semana (data/fin_de_semana.txt)
-    if (!finDeSemana_.cargarDesdeArchivo("data/fin_de_semana.txt"))
-        std::cerr << "[EstadoExploracion] Hubo problemas al cargar data/fin_de_semana.txt.\n";
+    // --------------------------------------------------------
+    // S2-5: efectos del fin de semana.
+    // --------------------------------------------------------
 
-    // S2-6: pesos de la nota del examen (data/notas.txt)
+    if (!finDeSemana_.cargarDesdeArchivo(
+            "data/fin_de_semana.txt"))
+    {
+        std::cerr
+            << "[EstadoExploracion] Hubo problemas al cargar "
+            << "data/fin_de_semana.txt.\n";
+    }
+
+    // --------------------------------------------------------
+    // S2-6: pesos de los examenes.
+    // --------------------------------------------------------
+
     if (!partida_.notas.cargarDesdeArchivo("data/notas.txt"))
-        std::cerr << "[EstadoExploracion] Hubo problemas al cargar data/notas.txt.\n";
+    {
+        std::cerr
+            << "[EstadoExploracion] Hubo problemas al cargar "
+            << "data/notas.txt.\n";
+    }
 
     // Configuración visual de la caja de texto (opaca para que se lea bien).
     fondoMensaje_.setFillColor(sf::Color(20, 20, 30, 255));
@@ -420,15 +509,221 @@ void EstadoExploracion::crearObjetos(const std::string& idEscena)
 // ---------------------------------------------------------------
 void EstadoExploracion::usarActividad(const std::string& idSolicitada)
 {
+    // --------------------------------------------------------
+    // S2-6: identificar la actividad solicitada.
+    // --------------------------------------------------------
+
     std::string idActividad = idSolicitada;
 
-    // La cama es un solo objeto: según la hora es siesta o dormir.
+    // La cama es un solo objeto.
+    // Segun la hora, permite dormir o tomar una siesta.
     if (idActividad == "cama")
     {
         const Bloque b = partida_.tiempo.bloque();
-        idActividad = (b == Bloque::Noche || b == Bloque::Madrugada)
-                          ? "dormir" : "siesta";
+
+        idActividad =
+            (b == Bloque::Noche || b == Bloque::Madrugada)
+                ? "dormir"
+                : "siesta";
     }
+    // --------------------------------------------------------
+    // S2-8: apertura de minijuegos desde las actividades.
+    // --------------------------------------------------------
+
+    const bool esComputadora =
+        (idActividad == "computadora");
+
+    const bool esEstudio =
+        (idActividad == "estudiar_casa" ||
+         idActividad == "estudiar_biblio");
+
+    if (!aplicandoResultadoMinijuego_ &&
+        (esComputadora || esEstudio))
+    {
+        // Comprobar primero si la actividad esta disponible.
+        // Esta consulta no consume tiempo ni estadisticas.
+        const EstadoActividad disponibilidad =
+            partida_.actividades.puedeHacer(
+                idActividad,
+                partida_.estadisticas,
+                partida_.tiempo
+            );
+
+        if (disponibilidad == EstadoActividad::Disponible)
+        {
+            std::string idMinijuego;
+
+            if (esComputadora)
+            {
+                // Sorteo entre los juegos registrados para PC.
+                const auto candidatos =
+                    registroMinijuegos_.idsDeCategoria(
+                        "computadora"
+                    );
+
+                idMinijuego = sorteadorMinijuegos_.sortear(
+                    "computadora",
+                    candidatos
+                );
+            }
+            else
+            {
+                // Sorteo entre el minijuego de la materia
+                // activa y los dos genericos de estudio.
+                idMinijuego = sortearMinijuegoEstudio(
+                    sorteadorMinijuegos_,
+                    partida_.materiaActiva()
+                );
+            }
+
+            if (idMinijuego.empty())
+            {
+                mostrarMensaje(
+                    "No hay minijuegos disponibles.\n\n"
+                    "(Presiona ENTER)"
+                );
+                return;
+            }
+
+            // Crear el minijuego usando su identificador.
+            auto minijuego = registroMinijuegos_.crear(
+                idMinijuego,
+                m_stack,
+
+                [this, idActividad](
+                    const ResultadoMinijuego& resultado)
+                {
+                    std::cout
+                        << "[Minijuego] "
+                        << resultado.id
+                        << " | Puntuacion: "
+                        << resultado.puntuacion
+                        << '\n';
+
+                    // Cancelar no consume la actividad.
+                    if (resultado.estado ==
+                        EstadoMinijuego::Cancelado)
+                    {
+                        return;
+                    }
+
+                    // ----------------------------------------------------
+                    // Minijuego fallido: estudio ineficiente.
+                    // ----------------------------------------------------
+
+                    if (resultado.estado == EstadoMinijuego::Fallido)
+                    {
+                        const bool esEstudio =
+                            idActividad == "estudiar_casa" ||
+                            idActividad == "estudiar_biblio";
+
+                        if (esEstudio)
+                        {
+                            // Registrar el intento sin aplicar recompensas.
+                            const ResultadoActividad intento =
+                                partida_.actividades.ejecutarSinRecompensa(
+                                    idActividad,
+                                    partida_.estadisticas,
+                                    partida_.tiempo
+                                );
+
+                            if (!intento.hecha())
+                            {
+                                mostrarMensaje(
+                                    "No se pudo registrar la actividad.\n\n"
+                                    "(Presiona ENTER)"
+                                );
+                                return;
+                            }
+
+                            std::string mensaje =
+                                "== ESTUDIO INEFICIENTE ==\n\n"
+                                "Puntuacion obtenida: " +
+                                std::to_string(resultado.puntuacion) +
+                                "/100\n\n"
+                                "No lograste concentrarte lo suficiente.\n"
+                                "Conocimiento adquirido: 0\n"
+                                "Perdiste un bloque de tiempo.\n";
+
+                            // Mantener las reglas generales del calendario
+                            // cuando el bloque gastado termina el dia.
+                            if (intento.evento == EventoTiempo::NuevoDia ||
+                                intento.evento == EventoTiempo::FinDeSemana)
+                            {
+                                finDeSemana_.cerrarDia();
+
+                                const ResultadoAmanecer noche =
+                                    colapso_.alAmanecer(estadisticas_);
+
+                                if (!noche.durmio)
+                                {
+                                    mensaje += "\n";
+                                    mensaje += noche.mensaje;
+                                    mensaje += "\n";
+                                }
+                            }
+
+                            mensaje += "\n(Presiona ENTER)";
+
+                            mostrarMensaje(mensaje);
+
+                            std::cout
+                                << "[Minijuego] Estudio ineficiente: "
+                                << resultado.id
+                                << " | Puntuacion: "
+                                << resultado.puntuacion
+                                << " | Sin recompensas"
+                                << '\n';
+                        }
+                        else
+                        {
+                            // Otros minijuegos conservan su comportamiento.
+                            mostrarMensaje(
+                                "Minijuego no completado.\n\n"
+                                "(Presiona ENTER)"
+                            );
+                        }
+
+                        return;
+                    }
+
+                    // Completar aplica los efectos normales
+                    // de la actividad correspondiente.
+                    aplicandoResultadoMinijuego_ = true;
+
+                    usarActividad(idActividad);
+
+                    aplicandoResultadoMinijuego_ = false;
+                }
+            );
+
+            if (!minijuego)
+            {
+                mostrarMensaje(
+                    "No se pudo crear el minijuego.\n\n"
+                    "(Presiona ENTER)"
+                );
+                return;
+            }
+
+            std::cout
+                << "[Minijuego] Iniciando: "
+                << idMinijuego << '\n';
+
+            m_stack->pushState(std::move(minijuego));
+
+            return;
+        }
+
+        // Si la actividad no esta disponible,
+        // dejamos continuar al sistema original.
+        // Asi conserva sus mensajes de error.
+    }
+
+    // --------------------------------------------------------
+    // Fin de la integracion S2-8.
+    // --------------------------------------------------------
+
 
     // --- LECTURA DEL MANUAL DEL ESTUDIANTE (Inicia la Pág. 1, continúa en handleEvent) ---
     if (idActividad == "leer_manual")
