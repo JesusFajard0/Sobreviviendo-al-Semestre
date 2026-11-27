@@ -1,14 +1,17 @@
 #include "core/Juego.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <memory>
 #include <optional>
-#include <algorithm>  
-#include <cmath>
+#include <utility>
+#include <vector>
 
+#include "core/CompatSFML.hpp"
 #include "core/MenuState.hpp"
 #include "world/EstadoExploracion.hpp"
-#include "core/CompatSFML.hpp"
+#include "world/IntroState.hpp"
 
 namespace
 {
@@ -25,7 +28,6 @@ namespace
 
 Juego::Juego()
 {
-
     vista_.setSize(sf::Vector2f(ANCHO_VISTA, ALTO_VISTA));
     vista_.setCenter(sf::Vector2f(ANCHO_VISTA / 2.f, ALTO_VISTA / 2.f));
 
@@ -61,8 +63,30 @@ Juego::Juego()
 
 void Juego::iniciarPartida()
 {
+    std::vector<DiapositivaIntro> intro = {
+        {
+            "assets/intro/intro_1.png",
+            "Sobreviviendo al Semestre: administra 8 semanas de vida universitaria y equilibra tus energías para no caer en el intento."
+        },
+        {
+            "assets/intro/intro_2.png",
+            "Asiste a clases, estudia y supera las fases de Cálculo (examen la 3.ª semana), Física (examen la 5.ª semana) y Programación (última y 8.ª semana) antes de que lleguen los exámenes."
+        },
+        {
+            "assets/intro/intro_3.png",
+            "Dormir, comer, ordenar o salir de rumba (viernes o fin de semana) sube o baja tus stats: cada decisión importa."
+        },
+        {
+            "assets/intro/intro_4.png",
+            "¿Lograrás aprobar y graduarte con buenos números, o terminarás sobreviviendo de milagro?"
+        }
+    };
+
     pila_.pushState(
         std::make_unique<EstadoExploracion>(&pila_, recursos_, partida_)
+    );
+    pila_.pushState(
+        std::make_unique<IntroState>(&pila_, recursos_, std::move(intro))
     );
 }
 

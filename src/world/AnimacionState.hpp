@@ -8,7 +8,7 @@
 
 #include "core/State.hpp"
 
-// S3-4: animaciones de actividades (clase, examen, discoteca, dormir y siesta).
+// S3-4: animaciones de actividades (clase, examen, discoteca, dormir, siesta, duchar y comer).
 //
 // Se apila sobre EstadoExploracion, cubre la pantalla con un fundido, reproduce
 // la animacion y se quita sola. ENTER, E, ESPACIO o ESC la saltan (despues de
@@ -21,7 +21,9 @@ enum class TipoAnimacion
     Examen,
     Discoteca,
     Dormir,    // de noche: anochece, se duerme y amanece
-    Siesta     // version corta y de dia
+    Siesta,    // version corta y de dia
+    Duchar,
+    Comer
 };
 
 class AnimacionState : public State
@@ -30,7 +32,7 @@ public:
     using AlTerminar = std::function<void()>;
 
     // hojaPersonaje puede ser nullptr (se dibuja un rectangulo azul).
-    // detalle: nombre de la materia (clase y examen); en las demas se ignora.
+    // detalle: nombre de la materia (clase y examen) o lugar (comer); en las demas se ignora.
     // imagenes: dibujos de la escena (assets/animaciones/*.png); si la lista
     // esta vacia se usa el dibujo provisional hecho con codigo.
     // textoFinal: texto grande que sale abajo al final (la nota del examen).
@@ -64,6 +66,8 @@ private:
     void dibujarExamen(sf::RenderWindow& w);
     void dibujarDiscoteca(sf::RenderWindow& w);
     void dibujarDormir(sf::RenderWindow& w, bool noche);
+    void dibujarDuchar(sf::RenderWindow& w);
+    void dibujarComer(sf::RenderWindow& w);
 
     // Utilidades de dibujo (todas aplican el fundido k_).
     sf::Color alfa(const sf::Color& c) const;

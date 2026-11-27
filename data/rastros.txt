@@ -1,0 +1,82 @@
+# S3-3: el RASTRO de los salones, una decoracion (easter egg) segun como te fue
+# en la materia: celebracion si te fue bien, tristeza si te fue mal. Nada
+# aparece hasta que pasa el examen de esa materia.
+#
+# rastro | idEscena | materia | condicion | tipo | x | y | ancho | alto | estilo | nombre | texto
+#
+#   idEscena:  salon donde queda el rastro (salon_calculo, salon_fisica, laboratorio)
+#   materia:   calculo | fisica | programacion (de cual examen depende)
+#   condicion: aprobado | reprobado | no_presento | presentado (aprobado o
+#              reprobado) | cualquiera (ya paso el examen, se presento o no)
+#   tipo y estilo (cada tipo acepta solo algunos estilos):
+#     pizarra  -> carita dibujada en la pizarra. estilo: feliz | triste | serio.
+#                 "nombre" es el titulo que se escribe al lado (ej. la nota).
+#                 Con E se lee el "texto".
+#     objeto   -> decoracion suelta. estilo: globos | trofeo | papel | nube.
+#                 "nombre" va debajo. Con E se lee el "texto".
+#     ambiente -> todo el salon: fiesta (tono calido y confeti) o tristeza
+#                 (tono azul y lluvia). x, y, ancho, alto, nombre y texto no
+#                 se usan (poner 0 y -).
+#     mensaje  -> sale solo, una vez, al entrar al salon. estilo: -  (x, y,
+#                 ancho, alto y nombre no se usan: 0 y -).
+#   x, y, ancho, alto: en la vista de 640 x 360.
+#   texto: \n = salto de linea. Se puede usar {nota}, {materia}, {promedio},
+#          {asistencias}, {faltas}, {nota_calculo}, {nota_fisica} y
+#          {nota_programacion}.
+#
+# fase | numero | texto
+#   Aviso al empezar la fase 2 o 3 (se desbloquean salones; ver faseMinima en
+#   data/escenas.txt). Usa las mismas llaves de arriba.
+
+
+# ===== Fase 1: Cálculo (rastro en Salón de Cálculo) =====
+rastro | salon_calculo | calculo | aprobado | pizarra | 225 | 20 | 190 | 60 | feliz | {nota}/20 | Alguien dibujó una carita feliz en la pizarra.\nTu nota en {materia}: {nota} / 20.\n¡Se nota que estudiaste!
+rastro | salon_calculo | calculo | aprobado | ambiente | 0 | 0 | 0 | 0 | fiesta | - | -
+rastro | salon_calculo | calculo | aprobado | objeto | 430 | 195 | 34 | 46 | globos | Globos | Globos atados a un pupitre.\nAlguien celebró tu {nota} / 20 en {materia}.
+rastro | salon_calculo | calculo | aprobado | objeto | 478 | 220 | 24 | 30 | trofeo | Trofeo | Un trofeo de cartón que dice:\n'Sobreviviente de {materia}'.
+rastro | salon_calculo | calculo | aprobado | mensaje | 0 | 0 | 0 | 0 | - | - | == Salón de Cálculo ==\n\nHay globos, confeti y una carita feliz en la pizarra.\nAprobaste {materia} con {nota} / 20. ¡El salón está de fiesta!
+rastro | salon_calculo | calculo | reprobado | pizarra | 225 | 20 | 190 | 60 | triste | {nota}/20 | En la pizarra hay una carita triste.\nTu nota en {materia}: {nota} / 20.\nTodavía queda semestre por delante.
+rastro | salon_calculo | calculo | reprobado | ambiente | 0 | 0 | 0 | 0 | tristeza | - | -
+rastro | salon_calculo | calculo | reprobado | objeto | 452 | 228 | 22 | 20 | papel | Parcial | Un parcial arrugado en el piso.\nUn {nota} / 20 rodeado en rojo.\nNadie lo quiso recoger.
+rastro | salon_calculo | calculo | reprobado | objeto | 428 | 170 | 46 | 28 | nube | Nubecita | Una nubecita gris llueve solo sobre este pupitre.\nParece que el salón comparte tu ánimo.
+rastro | salon_calculo | calculo | reprobado | mensaje | 0 | 0 | 0 | 0 | - | - | == Salón de Cálculo ==\n\nEl salón se ve gris y apagado, y llueve... adentro.\nEn la pizarra hay una carita triste: sacaste {nota} / 20 en {materia}.
+rastro | salon_calculo | calculo | no_presento | pizarra | 225 | 20 | 190 | 60 | triste | Sin nota | Una carita triste en la pizarra, con un bocadillo:\n'¿Y tú?'\nNo te presentaste al parcial de {materia}.
+rastro | salon_calculo | calculo | no_presento | ambiente | 0 | 0 | 0 | 0 | tristeza | - | -
+rastro | salon_calculo | calculo | no_presento | objeto | 428 | 170 | 46 | 28 | nube | Nubecita | Una nubecita gris sobre tu pupitre vacío.\nEl día del parcial nadie ocupó ese lugar.
+rastro | salon_calculo | calculo | no_presento | mensaje | 0 | 0 | 0 | 0 | - | - | == Salón de Cálculo ==\n\nEl salón está en silencio y se siente frío.\nEn la pizarra hay una carita triste: faltaste al parcial de {materia}.
+
+# ===== Fase 2: Física (rastro en Salón de Física) =====
+rastro | salon_fisica | fisica | aprobado | pizarra | 225 | 20 | 190 | 60 | feliz | {nota}/20 | Alguien dibujó una carita feliz en la pizarra.\nTu nota en {materia}: {nota} / 20.\n¡Se nota que estudiaste!
+rastro | salon_fisica | fisica | aprobado | ambiente | 0 | 0 | 0 | 0 | fiesta | - | -
+rastro | salon_fisica | fisica | aprobado | objeto | 430 | 195 | 34 | 46 | globos | Globos | Globos atados a un pupitre.\nAlguien celebró tu {nota} / 20 en {materia}.
+rastro | salon_fisica | fisica | aprobado | objeto | 478 | 220 | 24 | 30 | trofeo | Trofeo | Un trofeo de cartón que dice:\n'Sobreviviente de {materia}'.
+rastro | salon_fisica | fisica | aprobado | mensaje | 0 | 0 | 0 | 0 | - | - | == Salón de Física ==\n\nHay globos, confeti y una carita feliz en la pizarra.\nAprobaste {materia} con {nota} / 20. ¡El salón está de fiesta!
+rastro | salon_fisica | fisica | reprobado | pizarra | 225 | 20 | 190 | 60 | triste | {nota}/20 | En la pizarra hay una carita triste.\nTu nota en {materia}: {nota} / 20.\nTodavía queda semestre por delante.
+rastro | salon_fisica | fisica | reprobado | ambiente | 0 | 0 | 0 | 0 | tristeza | - | -
+rastro | salon_fisica | fisica | reprobado | objeto | 452 | 228 | 22 | 20 | papel | Parcial | Un parcial arrugado en el piso.\nUn {nota} / 20 rodeado en rojo.\nNadie lo quiso recoger.
+rastro | salon_fisica | fisica | reprobado | objeto | 428 | 170 | 46 | 28 | nube | Nubecita | Una nubecita gris llueve solo sobre este pupitre.\nParece que el salón comparte tu ánimo.
+rastro | salon_fisica | fisica | reprobado | mensaje | 0 | 0 | 0 | 0 | - | - | == Salón de Física ==\n\nEl salón se ve gris y apagado, y llueve... adentro.\nEn la pizarra hay una carita triste: sacaste {nota} / 20 en {materia}.
+rastro | salon_fisica | fisica | no_presento | pizarra | 225 | 20 | 190 | 60 | triste | Sin nota | Una carita triste en la pizarra, con un bocadillo:\n'¿Y tú?'\nNo te presentaste al parcial de {materia}.
+rastro | salon_fisica | fisica | no_presento | ambiente | 0 | 0 | 0 | 0 | tristeza | - | -
+rastro | salon_fisica | fisica | no_presento | objeto | 428 | 170 | 46 | 28 | nube | Nubecita | Una nubecita gris sobre tu pupitre vacío.\nEl día del parcial nadie ocupó ese lugar.
+rastro | salon_fisica | fisica | no_presento | mensaje | 0 | 0 | 0 | 0 | - | - | == Salón de Física ==\n\nEl salón está en silencio y se siente frío.\nEn la pizarra hay una carita triste: faltaste al parcial de {materia}.
+
+# ===== Fase 3: Programación (rastro en Laboratorio de Programación) =====
+rastro | laboratorio | programacion | aprobado | pizarra | 225 | 20 | 190 | 60 | feliz | {nota}/20 | Alguien dibujó una carita feliz en la pizarra.\nTu nota en {materia}: {nota} / 20.\n¡Se nota que estudiaste!
+rastro | laboratorio | programacion | aprobado | ambiente | 0 | 0 | 0 | 0 | fiesta | - | -
+rastro | laboratorio | programacion | aprobado | objeto | 430 | 195 | 34 | 46 | globos | Globos | Globos atados a un pupitre.\nAlguien celebró tu {nota} / 20 en {materia}.
+rastro | laboratorio | programacion | aprobado | objeto | 478 | 220 | 24 | 30 | trofeo | Trofeo | Un trofeo de cartón que dice:\n'Sobreviviente de {materia}'.
+rastro | laboratorio | programacion | aprobado | mensaje | 0 | 0 | 0 | 0 | - | - | == Laboratorio de Programación ==\n\nHay globos, confeti y una carita feliz en la pizarra.\nAprobaste {materia} con {nota} / 20. ¡El salón está de fiesta!
+rastro | laboratorio | programacion | reprobado | pizarra | 225 | 20 | 190 | 60 | triste | {nota}/20 | En la pizarra hay una carita triste.\nTu nota en {materia}: {nota} / 20.\nTodavía queda semestre por delante.
+rastro | laboratorio | programacion | reprobado | ambiente | 0 | 0 | 0 | 0 | tristeza | - | -
+rastro | laboratorio | programacion | reprobado | objeto | 452 | 228 | 22 | 20 | papel | Examen | Un examen arrugado en el piso.\nUn {nota} / 20 rodeado en rojo.\nNadie lo quiso recoger.
+rastro | laboratorio | programacion | reprobado | objeto | 428 | 170 | 46 | 28 | nube | Nubecita | Una nubecita gris llueve solo sobre este pupitre.\nParece que el salón comparte tu ánimo.
+rastro | laboratorio | programacion | reprobado | mensaje | 0 | 0 | 0 | 0 | - | - | == Laboratorio de Programación ==\n\nEl salón se ve gris y apagado, y llueve... adentro.\nEn la pizarra hay una carita triste: sacaste {nota} / 20 en {materia}.
+rastro | laboratorio | programacion | no_presento | pizarra | 225 | 20 | 190 | 60 | triste | Sin nota | Una carita triste en la pizarra, con un bocadillo:\n'¿Y tú?'\nNo te presentaste al examen de {materia}.
+rastro | laboratorio | programacion | no_presento | ambiente | 0 | 0 | 0 | 0 | tristeza | - | -
+rastro | laboratorio | programacion | no_presento | objeto | 428 | 170 | 46 | 28 | nube | Nubecita | Una nubecita gris sobre tu pupitre vacío.\nEl día del examen nadie ocupó ese lugar.
+rastro | laboratorio | programacion | no_presento | mensaje | 0 | 0 | 0 | 0 | - | - | == Laboratorio de Programación ==\n\nEl salón está en silencio y se siente frío.\nEn la pizarra hay una carita triste: faltaste al examen de {materia}.
+
+# ===== Cambio de fase (desbloqueo de salones) =====
+fase | 2 | == ¡NUEVA FASE! ==\n\nTermina Cálculo y empieza Física.\nSe desbloqueó el Salón de Física en la universidad.\nEl Salón de Cálculo guarda el rastro de cómo te fue.
+fase | 3 | == ¡ÚLTIMA FASE! ==\n\nAhora toca Programación.\nSe desbloqueó el Laboratorio de Programación en la universidad.\nPromedio hasta ahora: {promedio} / 20.
